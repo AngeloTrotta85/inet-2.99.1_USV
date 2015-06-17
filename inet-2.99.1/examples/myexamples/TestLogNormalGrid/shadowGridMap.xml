@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root>
-	<shadowCell pos="NW" />
-	<shadowCell pos="NE" />
-	<shadowCell pos="SW" />
-	<shadowCell pos="SE" />
+	<shadowCell cardinality="NW" exponent="3" variance="2.87" />
+	<shadowCell cardinality="NE" exponent="3" variance="1.87" />
+	<shadowCell cardinality="SW" exponent="3" variance="3.87" />
+	<shadowCell cardinality="SE" exponent="3" variance="2.47">
+		<shadowCell cardinality="NE" exponent="4" variance="1.07" />
+	</shadowCell>
 </root>
 	

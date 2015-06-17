@@ -72,15 +72,115 @@ bool LogNormalShadowingGrid::readChannelGridFile() {
 
     // find the number of defined postures
     int numCell = shadowCell.size();
-    if (numRoot == 0)
+    if (numCell == 0)
         throw cRuntimeError("Error defining the shadow-map grid");
 
     EV_DEBUG << "Reading XML shadow file. TAG shadowCell found: " << numCell << endl;
 
+    //set starting default value for the whole scenario
+    grid_map.exponent = 2;
+    grid_map.stddev = grid_map.variance = 0;
+    grid_map.children.clear();
+    grid_map.card = GridCardinality::OVERALL;
 
+    loadXMLtree(&shadowCell, &grid_map);
 
+    /*do {
+        cXMLElementList::const_iterator cell_part;
+        for (cell_part = shadowCell.begin(); cell_part != shadowCell.end(); cell_part++) {
+
+        }
+    } while (!shadowCell.empty());*/
+
+    printMap(&grid_map, 0);
 
     return true;
+}
+
+void LogNormalShadowingGrid::loadXMLtree(cXMLElementList *xml, Cell_t *grid) {
+
+    if (xml->size() == 0) {
+        return;
+    }
+    else {
+        cXMLElementList::const_iterator cell_part;
+        for (cell_part = xml->begin(); cell_part != xml->end(); cell_part++) {
+            Cell_t new_grid;
+            cXMLElement *act_xml = *cell_part;
+
+            //default values
+            new_grid.exponent = 2;
+            new_grid.stddev = grid_map.variance = 0;
+            new_grid.children.clear();
+            new_grid.card = GridCardinality::OVERALL;
+
+
+            // read the attributes
+            const char *str = act_xml->getAttribute("cardinality");
+            if (str != NULL) {
+                if (strcmp(str, "NE") == 0) {
+                    new_grid.card = GridCardinality::NE;
+                }
+                else if (strcmp(str, "NW") == 0) {
+                    new_grid.card = GridCardinality::NW;
+                }
+                else if (strcmp(str, "SE") == 0) {
+                    new_grid.card = GridCardinality::SE;
+                }
+                else if (strcmp(str, "SW") == 0) {
+                    new_grid.card = GridCardinality::SW;
+                }
+            }
+            str = act_xml->getAttribute("exponent");
+            if (str != NULL) {
+                new_grid.exponent = strtod(str, nullptr);
+            }
+            str = act_xml->getAttribute("variance");
+            if (str != NULL) {
+                new_grid.variance = strtod(str, nullptr);
+                new_grid.stddev = sqrt(new_grid.variance);
+            }
+
+            // read recoursively
+            cXMLElementList shadowCell;
+            shadowCell = act_xml->getChildrenByTagName("shadowCell");
+
+            loadXMLtree(&shadowCell, &new_grid);
+
+            grid->children.push_back(new_grid);
+        }
+    }
+
+}
+
+void LogNormalShadowingGrid::printMap(Cell_t *map, int ntab) {
+    for (int i = 0; i < ntab; i++) {
+        EV << "\t\t";
+    }
+    switch (map->card) {
+    case GridCardinality::OVERALL:
+        EV << "OVERALL";
+        break;
+    case GridCardinality::NE:
+        EV << "NE";
+        break;
+    case GridCardinality::NW:
+        EV << "NW";
+        break;
+    case GridCardinality::SE:
+        EV << "SE";
+        break;
+    case GridCardinality::SW:
+        EV << "SW";
+        break;
+    }
+    //EV << "CARD: " << map->card << "; EXP: " << map->exponent << "VAR: " << map->variance << "STDDEV: " << map->stddev << endl;
+    EV << "; EXP: " << map->exponent << "; VAR: " << map->variance << "; STDDEV: " << map->stddev << endl;
+
+    for (std::list<struct Cell>::iterator it = map->children.begin(); it != map->children.end(); it++) {
+        Cell_t *new_map = &(*it);
+        printMap(new_map, ntab+1);
+    }
 }
 
 } /* namespace physicallayer */
