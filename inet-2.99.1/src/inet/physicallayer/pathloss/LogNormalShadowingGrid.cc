@@ -15,8 +15,8 @@
 
 #include "inet/physicallayer/pathloss/LogNormalShadowingGrid.h"
 
-#include "inet/common/ModuleAccess.h"
-#include "inet/physicallayer/common/packetlevel/RadioMedium.h"
+//#include "inet/common/ModuleAccess.h"
+//#include "inet/physicallayer/common/packetlevel/RadioMedium.h"
 
 namespace inet {
 namespace physicallayer {
@@ -37,11 +37,18 @@ void LogNormalShadowingGrid::initialize(int stage)
             throw cRuntimeError("LogNormalShadowingGrid: error in reading the shadowing file");
     }
     else if (stage == INITSTAGE_PHYSICAL_LAYER) {
-        IRadioMedium *medium = check_and_cast<IRadioMedium *>(getParentModule());
-        scenarioCoordMax = check_and_cast<const RadioMedium *>(medium)->getMediumLimitCache()->getMaxConstraintArea();
-        scenarioCoordMin = check_and_cast<const RadioMedium *>(medium)->getMediumLimitCache()->getMinConstraintArea();
+        //IRadioMedium *medium = check_and_cast<IRadioMedium *>(getParentModule());
+        //scenarioCoordMax = check_and_cast<const RadioMedium *>(medium)->getMediumLimitCache()->getMaxConstraintArea();
+        //scenarioCoordMin = check_and_cast<const RadioMedium *>(medium)->getMediumLimitCache()->getMinConstraintArea();
 
-        //EV << "DIMENSIONI Scenario [" << scenarioCoordMin << " - " << scenarioCoordMax << "]" << endl;
+        scenarioCoordMin.x = par("constraintAreaMinX");
+        scenarioCoordMin.y = par("constraintAreaMinY");
+        scenarioCoordMin.z = par("constraintAreaMinZ");
+        scenarioCoordMax.x = par("constraintAreaMaxX");
+        scenarioCoordMax.y = par("constraintAreaMaxY");
+        scenarioCoordMax.z = par("constraintAreaMaxZ");
+
+        EV << "DIMENSIONI Scenario [" << scenarioCoordMin << " - " << scenarioCoordMax << "]" << endl;
     }
 }
 
@@ -57,6 +64,11 @@ std::ostream& LogNormalShadowingGrid::printToStream(std::ostream& stream, int le
 
 double LogNormalShadowingGrid::computePathLoss_parametric(mps propagationSpeed, Hz frequency, m distance, double alpha_par, double sigma_par) const
 {
+    EV << "Using for log-normal path loss: alpha = " << alpha_par << " and sigma = " << sigma_par << endl;
+
+    //throw cRuntimeError("LogNormalShadowingGrid::computePathLoss OK");
+    //exit(0);
+
     m d0 = m(1.0);
     // reference path loss
     double freeSpacePathLoss = computeFreeSpacePathLoss(propagationSpeed / frequency, d0, alpha_par, systemLoss);
@@ -86,6 +98,8 @@ double LogNormalShadowingGrid::computePathLossExt(mps propagationSpeed, Hz frequ
 void LogNormalShadowingGrid::getAlphaSigmaFromCoord(const Cell_t *grid, Coord min, Coord max, Coord point, double &alpha_p, double &sigma_p) const
 {
 
+    //EV << "Checking point " << point << " in range [" << min << " - " << max << "]" << endl;
+
     if (    (point.x < min.x) ||
             (point.y < min.y) ||
             (point.x > max.x) ||
@@ -96,6 +110,8 @@ void LogNormalShadowingGrid::getAlphaSigmaFromCoord(const Cell_t *grid, Coord mi
 
     alpha_p = grid->exponent;
     sigma_p = grid->stddev;
+
+    //EV << "Is inside alpha: " << alpha_p << " - sigma: " << sigma_p << endl;
 
     for (std::list<struct Cell>::const_iterator it = grid->children.begin(); it != grid->children.end(); it++) {
         const Cell_t *new_map = &(*it);
@@ -138,15 +154,24 @@ void LogNormalShadowingGrid::getAlphaSigmaFromCoord(const Cell_t *grid, Coord mi
 
 double LogNormalShadowingGrid::computePathLossGrid(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const
 {
+    double grid_alphaMax, grid_sigmaMax;
     double grid_alphaTx, grid_sigmaTx;
     double grid_alphaRx, grid_sigmaRx;
 
     getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, transmitter, grid_alphaTx, grid_sigmaTx);
     getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, receiver, grid_alphaRx, grid_sigmaRx);
 
-    return computePathLoss_parametric(propagationSpeed, frequency, distance,
-            math::max(grid_alphaTx, grid_alphaRx),
-            math::max(grid_sigmaTx, grid_sigmaRx));
+    // Choose the one with the maximum value of alpha
+    if (grid_alphaTx > grid_alphaRx) {
+        grid_alphaMax = grid_alphaTx;
+        grid_sigmaMax = grid_sigmaTx;
+    }
+    else {
+        grid_alphaMax = grid_alphaRx;
+        grid_sigmaMax = grid_sigmaRx;
+    }
+
+    return computePathLoss_parametric(propagationSpeed, frequency, distance, grid_alphaMax, grid_sigmaMax);
 }
 
 /**
