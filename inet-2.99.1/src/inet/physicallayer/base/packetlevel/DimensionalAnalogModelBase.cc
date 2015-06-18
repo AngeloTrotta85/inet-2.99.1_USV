@@ -82,7 +82,14 @@ const ConstMapping *DimensionalAnalogModelBase::computeReceptionPower(const IRad
     while (true) {
         const Argument& elementTransmissionPosition = it->getPosition();
         Hz carrierFrequency = attenuateWithCarrierFrequency || !hasFrequencyDimension ? narrowbandSignalAnalogModel->getCarrierFrequency() : Hz(elementTransmissionPosition.getArgValue(Dimension::frequency));
-        double pathLoss = radioMedium->getPathLoss()->computePathLoss(propagationSpeed, carrierFrequency, distance);
+
+        // Modified by Angelo Trotta
+        // no changes if the mthod computePathLossExt is not defined
+        // (created for the module: LogNormalPathLossGrid)
+        double pathLoss = radioMedium->getPathLoss()->computePathLossExt(propagationSpeed, carrierFrequency, distance,
+                                transmission->getStartPosition(), arrival->getStartPosition());
+        //double pathLoss = radioMedium->getPathLoss()->computePathLoss(propagationSpeed, carrierFrequency, distance);
+
         double obstacleLoss = radioMedium->getObstacleLoss() ? radioMedium->getObstacleLoss()->computeObstacleLoss(carrierFrequency, transmission->getStartPosition(), receptionStartPosition) : 1;
         W elementTransmissionPower = W(it->getValue());
         W elementReceptionPower = elementTransmissionPower * std::min(1.0, transmitterAntennaGain * receiverAntennaGain * pathLoss * obstacleLoss);

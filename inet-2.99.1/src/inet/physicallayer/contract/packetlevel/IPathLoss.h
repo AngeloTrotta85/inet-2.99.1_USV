@@ -19,6 +19,7 @@
 #define __INET_IPATHLOSS_H
 
 #include "inet/physicallayer/contract/packetlevel/IPrintableObject.h"
+#include "inet/common/geometry/common/Coord.h"
 
 namespace inet {
 
@@ -37,6 +38,13 @@ class INET_API IPathLoss : public IPrintableObject
      * no loss at all and 0 means all power is lost.
      */
     virtual double computePathLoss(mps propagationSpeed, Hz frequency, m distance) const = 0;
+
+    /**
+     * If not defined it works exactly as computePathLoss(...)
+     */
+    virtual double computePathLossExt(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const{
+        return computePathLoss(propagationSpeed, frequency, distance);
+    }
 
     /**
      * Returns the range for the given loss factor. The value is in the range

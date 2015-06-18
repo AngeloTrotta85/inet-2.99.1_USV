@@ -48,7 +48,16 @@ W ScalarAnalogModelBase::computeReceptionPower(const IRadio *receiverRadio, cons
     double transmitterAntennaGain = transmitterAntenna->computeGain(transmissionAntennaDirection);
     double receiverAntennaGain = receiverAntenna->computeGain(receptionAntennaDirection);
     m distance = m(receptionStartPosition.distance(transmission->getStartPosition()));
-    double pathLoss = radioMedium->getPathLoss()->computePathLoss(radioMedium->getPropagation()->getPropagationSpeed(), narrowbandSignalAnalogModel->getCarrierFrequency(), distance);
+
+    // Modified by Angelo Trotta
+    // no changes if the mthod computePathLossExt is not defined
+    // (created for the module: LogNormalPathLossGrid)
+    double pathLoss = radioMedium->getPathLoss()->computePathLossExt(radioMedium->getPropagation()->getPropagationSpeed(),
+            narrowbandSignalAnalogModel->getCarrierFrequency(),
+            distance, transmission->getStartPosition(), arrival->getStartPosition());
+    //double pathLoss = radioMedium->getPathLoss()->computePathLoss(radioMedium->getPropagation()->getPropagationSpeed(), narrowbandSignalAnalogModel->getCarrierFrequency(), distance);
+
+
     double obstacleLoss = radioMedium->getObstacleLoss() ? radioMedium->getObstacleLoss()->computeObstacleLoss(narrowbandSignalAnalogModel->getCarrierFrequency(), transmission->getStartPosition(), receptionStartPosition) : 1;
     W transmissionPower = scalarSignalAnalogModel->getPower();
     return transmissionPower * std::min(1.0, transmitterAntennaGain * receiverAntennaGain * pathLoss * obstacleLoss);

@@ -18,7 +18,11 @@
 
 #include <list>
 
+#include "inet/common/geometry/common/Coord.h"
+
 #include "inet/physicallayer/pathloss/LogNormalShadowing.h"
+#include "inet/mobility/contract/IMobility.h"
+#include "inet/physicallayer/contract/packetlevel/IRadioMedium.h"
 
 namespace inet {
 
@@ -43,6 +47,7 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
 
   protected:
     virtual void initialize(int stage) override;
+    virtual int numInitStages() const override { return NUM_INIT_STAGES; }
 
     /** @brief Reading the input xml file with the channel characteristics */
     bool readChannelGridFile();
@@ -54,12 +59,21 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     LogNormalShadowingGrid();
     virtual std::ostream& printToStream(std::ostream& stream, int level) const override;
     virtual double computePathLoss(mps propagationSpeed, Hz frequency, m distance) const override;
+    virtual double computePathLossExt(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const override;
 
   private:
     void printMap(Cell_t *map, int ntab);
+    void initCellGrid(Cell_t *cell);
+
+    double computePathLossGrid(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const;
+    double computePathLoss_parametric(mps propagationSpeed, Hz frequency, m distance, double alpha_par, double sigma_par) const;
+
+    void getAlphaSigmaFromCoord(const Cell_t *grid, Coord min, Coord max, Coord point, double &alpha_p, double &sigma_p) const;
 
   private:
     Cell_t grid_map;
+    Coord scenarioCoordMin;
+    Coord scenarioCoordMax;
 };
 
 } // namespace physicallayer

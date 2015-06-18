@@ -15,6 +15,9 @@
 
 #include "inet/physicallayer/pathloss/LogNormalShadowingGrid.h"
 
+#include "inet/common/ModuleAccess.h"
+#include "inet/physicallayer/common/packetlevel/RadioMedium.h"
+
 namespace inet {
 namespace physicallayer {
 
@@ -33,6 +36,13 @@ void LogNormalShadowingGrid::initialize(int stage)
         if (!readChannelGridFile())
             throw cRuntimeError("LogNormalShadowingGrid: error in reading the shadowing file");
     }
+    else if (stage == INITSTAGE_PHYSICAL_LAYER) {
+        IRadioMedium *medium = check_and_cast<IRadioMedium *>(getParentModule());
+        scenarioCoordMax = check_and_cast<const RadioMedium *>(medium)->getMediumLimitCache()->getMaxConstraintArea();
+        scenarioCoordMin = check_and_cast<const RadioMedium *>(medium)->getMediumLimitCache()->getMinConstraintArea();
+
+        //EV << "DIMENSIONI Scenario [" << scenarioCoordMin << " - " << scenarioCoordMax << "]" << endl;
+    }
 }
 
 std::ostream& LogNormalShadowingGrid::printToStream(std::ostream& stream, int level) const
@@ -45,15 +55,98 @@ std::ostream& LogNormalShadowingGrid::printToStream(std::ostream& stream, int le
     return stream;
 }
 
-double LogNormalShadowingGrid::computePathLoss(mps propagationSpeed, Hz frequency, m distance) const
+double LogNormalShadowingGrid::computePathLoss_parametric(mps propagationSpeed, Hz frequency, m distance, double alpha_par, double sigma_par) const
 {
     m d0 = m(1.0);
+    // reference path loss
+    double freeSpacePathLoss = computeFreeSpacePathLoss(propagationSpeed / frequency, d0, alpha_par, systemLoss);
+    double PL_d0_db = 10.0 * log10(1 / freeSpacePathLoss);
+    // path loss at distance d + normal distribution with sigma standard deviation
+    double PL_db = PL_d0_db + 10 * alpha_par * log10(unit(distance / d0).get()) + normal(0.0, sigma_par);
+    return math::dB2fraction(-PL_db);
+}
+
+double LogNormalShadowingGrid::computePathLoss(mps propagationSpeed, Hz frequency, m distance) const
+{
+    return computePathLoss_parametric(propagationSpeed, frequency, distance, alpha, sigma);
+    /*m d0 = m(1.0);
     // reference path loss
     double freeSpacePathLoss = computeFreeSpacePathLoss(propagationSpeed / frequency, d0, alpha, systemLoss);
     double PL_d0_db = 10.0 * log10(1 / freeSpacePathLoss);
     // path loss at distance d + normal distribution with sigma standard deviation
     double PL_db = PL_d0_db + 10 * alpha * log10(unit(distance / d0).get()) + normal(0.0, sigma);
-    return math::dB2fraction(-PL_db);
+    return math::dB2fraction(-PL_db);*/
+}
+
+double LogNormalShadowingGrid::computePathLossExt(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const
+{
+    return computePathLossGrid(propagationSpeed, frequency, distance, transmitter, receiver);
+}
+
+void LogNormalShadowingGrid::getAlphaSigmaFromCoord(const Cell_t *grid, Coord min, Coord max, Coord point, double &alpha_p, double &sigma_p) const
+{
+
+    if (    (point.x < min.x) ||
+            (point.y < min.y) ||
+            (point.x > max.x) ||
+            (point.x > max.x)
+        ){
+        return;
+    }
+
+    alpha_p = grid->exponent;
+    sigma_p = grid->stddev;
+
+    for (std::list<struct Cell>::const_iterator it = grid->children.begin(); it != grid->children.end(); it++) {
+        const Cell_t *new_map = &(*it);
+        Coord new_min, new_max;
+
+        new_min = min;
+        new_max = max;
+
+        switch (new_map->card) {
+        default:
+        case GridCardinality::OVERALL:
+            // get default (the whole)
+            break;
+
+        case GridCardinality::NE:
+            new_min.x = (min.x + max.x) / 2.0;
+            new_max.y = (min.y + max.y) / 2.0;
+            break;
+
+        case GridCardinality::NW:
+            new_max.x = (min.x + max.x) / 2.0;
+            new_max.y = (min.y + max.y) / 2.0;
+            break;
+
+        case GridCardinality::SE:
+            new_min.x = (min.x + max.x) / 2.0;
+            new_min.y = (min.y + max.y) / 2.0;
+            break;
+
+        case GridCardinality::SW:
+            new_max.x = (min.x + max.x) / 2.0;
+            new_min.y = (min.y + max.y) / 2.0;
+            break;
+        }
+
+        getAlphaSigmaFromCoord(new_map, new_min, new_max, point, alpha_p, sigma_p);
+    }
+
+}
+
+double LogNormalShadowingGrid::computePathLossGrid(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const
+{
+    double grid_alphaTx, grid_sigmaTx;
+    double grid_alphaRx, grid_sigmaRx;
+
+    getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, transmitter, grid_alphaTx, grid_sigmaTx);
+    getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, receiver, grid_alphaRx, grid_sigmaRx);
+
+    return computePathLoss_parametric(propagationSpeed, frequency, distance,
+            math::max(grid_alphaTx, grid_alphaRx),
+            math::max(grid_sigmaTx, grid_sigmaRx));
 }
 
 /**
@@ -78,10 +171,7 @@ bool LogNormalShadowingGrid::readChannelGridFile() {
     EV_DEBUG << "Reading XML shadow file. TAG shadowCell found: " << numCell << endl;
 
     //set starting default value for the whole scenario
-    grid_map.exponent = 2;
-    grid_map.stddev = grid_map.variance = 0;
-    grid_map.children.clear();
-    grid_map.card = GridCardinality::OVERALL;
+    initCellGrid(&grid_map);
 
     loadXMLtree(&shadowCell, &grid_map);
 
@@ -109,11 +199,7 @@ void LogNormalShadowingGrid::loadXMLtree(cXMLElementList *xml, Cell_t *grid) {
             cXMLElement *act_xml = *cell_part;
 
             //default values
-            new_grid.exponent = 2;
-            new_grid.stddev = grid_map.variance = 0;
-            new_grid.children.clear();
-            new_grid.card = GridCardinality::OVERALL;
-
+            initCellGrid(&new_grid);
 
             // read the attributes
             const char *str = act_xml->getAttribute("cardinality");
@@ -151,6 +237,14 @@ void LogNormalShadowingGrid::loadXMLtree(cXMLElementList *xml, Cell_t *grid) {
         }
     }
 
+}
+
+void LogNormalShadowingGrid::initCellGrid(Cell_t *cell) {
+    cell->exponent = alpha;
+    cell->stddev = sigma;
+    cell->variance = sigma*sigma;
+    cell->children.clear();
+    cell->card = GridCardinality::OVERALL;
 }
 
 void LogNormalShadowingGrid::printMap(Cell_t *map, int ntab) {
