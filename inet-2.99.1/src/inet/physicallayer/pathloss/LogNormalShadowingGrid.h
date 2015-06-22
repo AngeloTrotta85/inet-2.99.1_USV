@@ -62,6 +62,7 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     virtual double computePathLossExt(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const override;
 
   private:
+    void drawShadowMap(void);
     void printMap(Cell_t *map, int ntab);
     void initCellGrid(Cell_t *cell);
 

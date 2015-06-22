@@ -35,6 +35,8 @@ void LogNormalShadowingGrid::initialize(int stage)
 
         if (!readChannelGridFile())
             throw cRuntimeError("LogNormalShadowingGrid: error in reading the shadowing file");
+
+        drawShadowMap();
     }
     else if (stage == INITSTAGE_PHYSICAL_LAYER) {
         //IRadioMedium *medium = check_and_cast<IRadioMedium *>(getParentModule());
@@ -300,6 +302,10 @@ void LogNormalShadowingGrid::printMap(Cell_t *map, int ntab) {
         Cell_t *new_map = &(*it);
         printMap(new_map, ntab+1);
     }
+}
+
+void LogNormalShadowingGrid::drawShadowMap(void) {
+
 }
 
 } /* namespace physicallayer */
