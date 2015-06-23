@@ -19,9 +19,10 @@ package inet.examples.myexamples.LogNormalGridTestTX;
 // parametric: true
 // static:     false
 
+import inet.environment.common.PhysicalEnvironment;
 import inet.networklayer.configurator.ipv4.IPv4NetworkConfigurator;
 import inet.node.inet.AdhocHost;
-import inet.node.inet.WirelessHost;
+//import inet.node.inet.WirelessHost;
 import inet.physicallayer.ieee80211.packetlevel.Ieee80211ScalarRadioMedium;
 
 network LogNormalGridTestTX
@@ -29,7 +30,7 @@ network LogNormalGridTestTX
     parameters:
         int numHosts;
     submodules:
-        tower: WirelessHost {
+        tower: AdhocHost {
             @display("p=20,20;i=device/antennatower");
         }
 
@@ -45,5 +46,9 @@ network LogNormalGridTestTX
 
         configurator: IPv4NetworkConfigurator {
             @display("p=113,20");
+        }
+        environment: PhysicalEnvironment {
+            parameters:
+                @display("p=254,20");
         }
 }

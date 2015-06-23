@@ -122,6 +122,9 @@ class INET_API PhysicalEnvironment : public cModule, public IPhysicalEnvironment
     virtual const PhysicalObject *getObjectById(int id) const;
 
     virtual void visitObjects(const IVisitor *visitor, const LineSegment& lineSegment) const override;
+
+    // added by Angelo Trotta
+    virtual void addFromXML(cXMLElement *xml);
 };
 
 } // namespace physicalenvironment

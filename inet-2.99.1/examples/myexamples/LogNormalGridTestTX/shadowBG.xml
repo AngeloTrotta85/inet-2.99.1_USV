@@ -1,0 +1,6 @@
+<environment>
+<object position="center 25 25 25" orientation="0 0 0" shape="cuboid 50 50 50" material="brick" fill-color="203 65 84"/>
+<object position="center 25 75 25" orientation="0 0 0" shape="cuboid 50 50 50" material="brick" fill-color="203 65 84"/>
+<object position="center 25 125 25" orientation="0 0 0" shape="cuboid 50 50 50" material="brick" fill-color="203 65 84"/>
+<object position="center 25 175 25" orientation="0 0 0" shape="cuboid 50 50 50" material="brick" fill-color="203 65 84"/>
+</environment>

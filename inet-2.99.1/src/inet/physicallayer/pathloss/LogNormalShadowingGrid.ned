@@ -19,6 +19,13 @@ module LogNormalShadowingGrid extends LogNormalShadowing
 {
     parameters:
         xml shadowFile;        // The input file that specify the characteristics of the log-normal path loss shadowing for each grid-cell
+        xml testShadowDraw = default(xml("<environment/>"));
+        
+        int maxRGBdraw_r = default(203);		// Specify the red (RGB) value for the shadow drawing
+        int maxRGBdraw_g = default(65);			// Specify the green (RGB) value for the shadow drawing
+        int maxRGBdraw_b = default(84);			// Specify the blue (RGB) value for the shadow drawing
+        double minDrawAlpha = default(2);		// Specify the min alpha val for the shadow drawing 
+        double maxDrawAlpha = default(6);		// Specify the max alpha val for the shadow drawing 
         
         double constraintAreaMinX @unit(m) = default(-1m/0); // min x position of the constraint area, unconstrained by default (negative infinity)
         double constraintAreaMinY @unit(m) = default(-1m/0); // min y position of the constraint area, unconstrained by default (negative infinity)

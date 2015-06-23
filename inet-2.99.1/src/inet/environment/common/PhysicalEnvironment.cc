@@ -734,6 +734,12 @@ cFigure::Point PhysicalEnvironment::computeViewTranslation(const char* viewTrans
     return cFigure::Point(x, y);
 }
 
+void PhysicalEnvironment::addFromXML(cXMLElement *xml) {
+    parseShapes(xml);
+    parseMaterials(xml);
+    parseObjects(xml);
+}
+
 } // namespace physicalenvironment
 
 } // namespace inet

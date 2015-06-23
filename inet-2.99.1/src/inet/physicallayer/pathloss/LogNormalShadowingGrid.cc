@@ -15,6 +15,8 @@
 
 #include "inet/physicallayer/pathloss/LogNormalShadowingGrid.h"
 
+#include "inet/environment/common/PhysicalEnvironment.h"
+
 //#include "inet/common/ModuleAccess.h"
 //#include "inet/physicallayer/common/packetlevel/RadioMedium.h"
 
@@ -33,16 +35,6 @@ void LogNormalShadowingGrid::initialize(int stage)
     LogNormalShadowing::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
 
-        if (!readChannelGridFile())
-            throw cRuntimeError("LogNormalShadowingGrid: error in reading the shadowing file");
-
-        drawShadowMap();
-    }
-    else if (stage == INITSTAGE_PHYSICAL_LAYER) {
-        //IRadioMedium *medium = check_and_cast<IRadioMedium *>(getParentModule());
-        //scenarioCoordMax = check_and_cast<const RadioMedium *>(medium)->getMediumLimitCache()->getMaxConstraintArea();
-        //scenarioCoordMin = check_and_cast<const RadioMedium *>(medium)->getMediumLimitCache()->getMinConstraintArea();
-
         scenarioCoordMin.x = par("constraintAreaMinX");
         scenarioCoordMin.y = par("constraintAreaMinY");
         scenarioCoordMin.z = par("constraintAreaMinZ");
@@ -50,7 +42,19 @@ void LogNormalShadowingGrid::initialize(int stage)
         scenarioCoordMax.y = par("constraintAreaMaxY");
         scenarioCoordMax.z = par("constraintAreaMaxZ");
 
-        EV << "DIMENSIONI Scenario [" << scenarioCoordMin << " - " << scenarioCoordMax << "]" << endl;
+        max_RGB_R = par("maxRGBdraw_r");
+        max_RGB_G = par("maxRGBdraw_g");
+        max_RGB_B = par("maxRGBdraw_b");
+        min_alpha_val = par("minDrawAlpha");
+        max_alpha_val = par("maxDrawAlpha");
+
+        if (!readChannelGridFile())
+            throw cRuntimeError("LogNormalShadowingGrid: error in reading the shadowing file");
+
+        //drawShadowMap();
+    }
+    else if (stage == INITSTAGE_PHYSICAL_ENVIRONMENT) {
+        drawShadowMap();
     }
 }
 
@@ -66,7 +70,7 @@ std::ostream& LogNormalShadowingGrid::printToStream(std::ostream& stream, int le
 
 double LogNormalShadowingGrid::computePathLoss_parametric(mps propagationSpeed, Hz frequency, m distance, double alpha_par, double sigma_par) const
 {
-    EV << "Using for log-normal path loss: alpha = " << alpha_par << " and sigma = " << sigma_par << endl;
+    EV_DEBUG << "Using for log-normal path loss: alpha = " << alpha_par << " and sigma = " << sigma_par << endl;
 
     //throw cRuntimeError("LogNormalShadowingGrid::computePathLoss OK");
     //exit(0);
@@ -105,53 +109,58 @@ void LogNormalShadowingGrid::getAlphaSigmaFromCoord(const Cell_t *grid, Coord mi
     if (    (point.x < min.x) ||
             (point.y < min.y) ||
             (point.x > max.x) ||
-            (point.x > max.x)
-        ){
-        return;
+            (point.y > max.y)
+    ){
+        //alpha_p = alpha;
+        //sigma_p = sigma;
+        //return;
     }
+    else {
 
-    alpha_p = grid->exponent;
-    sigma_p = grid->stddev;
+        alpha_p = grid->exponent;
+        sigma_p = grid->stddev;
 
-    //EV << "Is inside alpha: " << alpha_p << " - sigma: " << sigma_p << endl;
+        //EV << "Is inside alpha: " << alpha_p << " - sigma: " << sigma_p << endl;
 
-    for (std::list<struct Cell>::const_iterator it = grid->children.begin(); it != grid->children.end(); it++) {
-        const Cell_t *new_map = &(*it);
-        Coord new_min, new_max;
+        for (std::list<struct Cell>::const_iterator it = grid->children.begin(); it != grid->children.end(); it++) {
+            const Cell_t *new_map = &(*it);
+            Coord new_min, new_max;
 
-        new_min = min;
-        new_max = max;
+            new_min = min;
+            new_max = max;
 
-        switch (new_map->card) {
-        default:
-        case GridCardinality::OVERALL:
-            // get default (the whole)
-            break;
+            switch (new_map->card) {
+            default:
+            case GridCardinality::OVERALL:
+                // get default (the whole)
+                break;
 
-        case GridCardinality::NE:
-            new_min.x = (min.x + max.x) / 2.0;
-            new_max.y = (min.y + max.y) / 2.0;
-            break;
+            case GridCardinality::NE:
+                new_min.x = (min.x + max.x) / 2.0;
+                new_max.y = (min.y + max.y) / 2.0;
+                break;
 
-        case GridCardinality::NW:
-            new_max.x = (min.x + max.x) / 2.0;
-            new_max.y = (min.y + max.y) / 2.0;
-            break;
+            case GridCardinality::NW:
+                new_max.x = (min.x + max.x) / 2.0;
+                new_max.y = (min.y + max.y) / 2.0;
+                break;
 
-        case GridCardinality::SE:
-            new_min.x = (min.x + max.x) / 2.0;
-            new_min.y = (min.y + max.y) / 2.0;
-            break;
+            case GridCardinality::SE:
+                new_min.x = (min.x + max.x) / 2.0;
+                new_min.y = (min.y + max.y) / 2.0;
+                break;
 
-        case GridCardinality::SW:
-            new_max.x = (min.x + max.x) / 2.0;
-            new_min.y = (min.y + max.y) / 2.0;
-            break;
+            case GridCardinality::SW:
+                new_max.x = (min.x + max.x) / 2.0;
+                new_min.y = (min.y + max.y) / 2.0;
+                break;
+            }
+
+            getAlphaSigmaFromCoord(new_map, new_min, new_max, point, alpha_p, sigma_p);
         }
-
-        getAlphaSigmaFromCoord(new_map, new_min, new_max, point, alpha_p, sigma_p);
     }
 
+    //EV << "ALPHA: " << alpha_p << " - SIGMA: " << sigma_p << endl;
 }
 
 double LogNormalShadowingGrid::computePathLossGrid(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const
@@ -160,17 +169,27 @@ double LogNormalShadowingGrid::computePathLossGrid(mps propagationSpeed, Hz freq
     double grid_alphaTx, grid_sigmaTx;
     double grid_alphaRx, grid_sigmaRx;
 
+    grid_alphaTx = grid_alphaRx = alpha;
+    grid_sigmaTx = grid_sigmaRx = sigma;
+
+    //EV_DEBUG << "Scenario: = " << scenarioCoordMin << " " << scenarioCoordMax << endl;
+    //EV_DEBUG << "TX at = " << transmitter << endl;
+    //EV_DEBUG << "RX at = " << receiver << endl;
+
     getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, transmitter, grid_alphaTx, grid_sigmaTx);
     getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, receiver, grid_alphaRx, grid_sigmaRx);
 
+    //EV_DEBUG << "TX: alpha = " << grid_alphaTx << " and sigma = " << grid_sigmaTx << endl;
+    //EV_DEBUG << "RX: alpha = " << grid_alphaRx << " and sigma = " << grid_sigmaRx << endl;
+
     // Choose the one with the maximum value of alpha
-    if (grid_alphaTx > grid_alphaRx) {
-        grid_alphaMax = grid_alphaTx;
-        grid_sigmaMax = grid_sigmaTx;
-    }
-    else {
+    if (grid_alphaRx >= grid_alphaTx) {
         grid_alphaMax = grid_alphaRx;
         grid_sigmaMax = grid_sigmaRx;
+    }
+    else {
+        grid_alphaMax = grid_alphaTx;
+        grid_sigmaMax = grid_sigmaTx;
     }
 
     return computePathLoss_parametric(propagationSpeed, frequency, distance, grid_alphaMax, grid_sigmaMax);
@@ -305,7 +324,202 @@ void LogNormalShadowingGrid::printMap(Cell_t *map, int ntab) {
 }
 
 void LogNormalShadowingGrid::drawShadowMap(void) {
+    PhysicalEnvironment *physicalEnvironment = dynamic_cast<PhysicalEnvironment *>(getModuleByPath("environment"));
 
+    if (physicalEnvironment != nullptr) {
+        cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
+
+        //<object position="center 25 25 25" shape="cuboid 50 50 50" material="brick" fill-color="203 65 84"/>
+        /*cXMLElement *testGrid = new cXMLElement("object", "", shadowsXml);
+        testGrid->setAttribute("position", "center 25 25 25");
+        testGrid->setAttribute("shape", "cuboid 50 50 50");
+        testGrid->setAttribute("material", "vacuum");
+        testGrid->setAttribute("fill-color", "203 65 84");
+
+        shadowsXml->appendChild(testGrid);*/
+        addXMLchild_object(shadowsXml, &grid_map, scenarioCoordMin, scenarioCoordMax);
+
+        physicalEnvironment->addFromXML(shadowsXml);
+
+        //test_shadows
+        //cXMLElement *test_environment = par("testShadowDraw");
+        //physicalEnvironment->addFromXML(test_environment);
+    }
+}
+
+void LogNormalShadowingGrid::setXMLattr(cXMLElement *el, Coord posObj, double dimObj, double opacity) {
+    char buffer[64];
+
+    if (opacity > 1) opacity = 1;
+    if (opacity < 0) opacity = 0;
+
+    //fill-color attribute
+#if OMNETPP_CANVAS_VERSION >= 0x20140908
+    snprintf(buffer, sizeof(buffer), "%d %d %d", max_RGB_R, max_RGB_G, max_RGB_B);
+    el->setAttribute("fill-color", buffer);
+#else
+    opacity = 1.0 - opacity;
+    snprintf(buffer, sizeof(buffer), "%d %d %d",
+            (int)(((double) max_RGB_R) * opacity),
+            (int)(((double) max_RGB_G) * opacity),
+            (int)(((double) max_RGB_B) * opacity));
+    el->setAttribute("fill-color", buffer);
+
+    opacity = 1;
+#endif
+
+    //position attribute
+    snprintf(buffer, sizeof(buffer), "min %lf %lf %lf", posObj.x, posObj.y, posObj.z);
+    el->setAttribute("position", buffer);
+
+    //shape attribute
+    snprintf(buffer, sizeof(buffer), "cuboid %lf %lf %lf", dimObj, dimObj, dimObj);
+    el->setAttribute("shape", buffer);
+
+    //material and fill-color constant
+    el->setAttribute("material", "vacuum");
+
+    //opacity
+#if OMNETPP_CANVAS_VERSION >= 0x20140908
+    snprintf(buffer, sizeof(buffer), "%lf", opacity);
+    el->setAttribute("opacity", buffer);
+#endif
+}
+
+#define NE_MASK 0x01
+#define NW_MASK 0x02
+#define SE_MASK 0x04
+#define SW_MASK 0x08
+
+void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map, Coord min, Coord max) {
+
+    double myExponent = map->exponent;
+    if(myExponent < min_alpha_val) myExponent = min_alpha_val;
+    if(myExponent > max_alpha_val) myExponent = max_alpha_val;
+
+    double myOpacity = (myExponent - min_alpha_val) / (max_alpha_val - min_alpha_val);
+
+    EV << "addXMLchild_object. [" << min << " " << max << "]" << endl;
+
+    //if ((map->card == GridCardinality::OVERALL) || (map->children.size() == 0)) {
+    if (map->children.size() == 0) {
+
+        EV << "Appending new child. Min: " << min << " - Dim: " << max.x - min.x << endl;
+
+        cXMLElement *newGrid = new cXMLElement("object", "", parent);
+        setXMLattr(newGrid, min, max.x - min.x, myOpacity);
+        EV << newGrid->detailedInfo() << endl;
+
+        parent->appendChild(newGrid);
+    }
+    else {
+        // check if there are all the children: NE, NW, SE, SW
+        unsigned int test_child = 0;
+
+        for (std::list<struct Cell>::iterator it = map->children.begin(); it != map->children.end(); it++) {
+            Cell_t *new_map = &(*it);
+            Coord new_min, new_max;
+
+            new_min = min;
+            new_max = max;
+
+            switch (new_map->card) {
+            case GridCardinality::NE:
+                test_child |= NE_MASK;
+                new_min.x = (min.x + max.x) / 2.0;
+                new_max.y = (min.y + max.y) / 2.0;
+                break;
+
+            case GridCardinality::NW:
+                test_child |= NW_MASK;
+                new_max.x = (min.x + max.x) / 2.0;
+                new_max.y = (min.y + max.y) / 2.0;
+                break;
+
+            case GridCardinality::SE:
+                test_child |= SE_MASK;
+                new_min.x = (min.x + max.x) / 2.0;
+                new_min.y = (min.y + max.y) / 2.0;
+                break;
+
+            case GridCardinality::SW:
+                test_child |= SW_MASK;
+                new_max.x = (min.x + max.x) / 2.0;
+                new_min.y = (min.y + max.y) / 2.0;
+                break;
+
+            default:
+                test_child |= NE_MASK;
+                test_child |= NW_MASK;
+                test_child |= SE_MASK;
+                test_child |= SW_MASK;
+                break;
+            }
+
+            addXMLchild_object(parent, new_map, new_min, new_max);
+        }
+
+        if ((test_child & NE_MASK) == 0) {
+            Coord new_min, new_max;
+
+            new_min = min;
+            new_max = max;
+            new_min.x = (min.x + max.x) / 2.0;
+            new_max.y = (min.y + max.y) / 2.0;
+
+            cXMLElement *newGrid = new cXMLElement("object", "", parent);
+            setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
+            EV << newGrid->detailedInfo() << endl;
+
+            parent->appendChild(newGrid);
+        }
+
+        if ((test_child & NW_MASK) == 0) {
+            Coord new_min, new_max;
+
+            new_min = min;
+            new_max = max;
+            new_max.x = (min.x + max.x) / 2.0;
+            new_max.y = (min.y + max.y) / 2.0;
+
+            cXMLElement *newGrid = new cXMLElement("object", "", parent);
+            setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
+            EV << newGrid->detailedInfo() << endl;
+
+            parent->appendChild(newGrid);
+        }
+
+        if ((test_child & SE_MASK) == 0) {
+            Coord new_min, new_max;
+
+            new_min = min;
+            new_max = max;
+            new_min.x = (min.x + max.x) / 2.0;
+            new_min.y = (min.y + max.y) / 2.0;
+
+            cXMLElement *newGrid = new cXMLElement("object", "", parent);
+            setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
+            EV << newGrid->detailedInfo() << endl;
+
+            parent->appendChild(newGrid);
+        }
+
+        if ((test_child & SW_MASK) == 0) {
+            Coord new_min, new_max;
+
+            new_min = min;
+            new_max = max;
+            new_max.x = (min.x + max.x) / 2.0;
+            new_min.y = (min.y + max.y) / 2.0;
+
+            cXMLElement *newGrid = new cXMLElement("object", "", parent);
+            setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
+            EV << newGrid->detailedInfo() << endl;
+
+            parent->appendChild(newGrid);
+        }
+
+    }
 }
 
 } /* namespace physicallayer */

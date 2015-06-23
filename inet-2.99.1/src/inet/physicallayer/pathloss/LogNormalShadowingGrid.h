@@ -62,6 +62,8 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     virtual double computePathLossExt(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const override;
 
   private:
+    void setXMLattr(cXMLElement *el, Coord posObj, double dimObj, double opacity);
+    void addXMLchild_object(cXMLElement *parent, Cell_t *map, Coord min, Coord max);
     void drawShadowMap(void);
     void printMap(Cell_t *map, int ntab);
     void initCellGrid(Cell_t *cell);
@@ -75,6 +77,13 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     Cell_t grid_map;
     Coord scenarioCoordMin;
     Coord scenarioCoordMax;
+
+    //draw option
+    int max_RGB_R;
+    int max_RGB_G;
+    int max_RGB_B;
+    double min_alpha_val;
+    double max_alpha_val;
 };
 
 } // namespace physicallayer
