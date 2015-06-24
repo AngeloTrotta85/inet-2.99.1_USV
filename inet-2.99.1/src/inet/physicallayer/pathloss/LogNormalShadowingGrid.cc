@@ -47,14 +47,18 @@ void LogNormalShadowingGrid::initialize(int stage)
         max_RGB_B = par("maxRGBdraw_b");
         min_alpha_val = par("minDrawAlpha");
         max_alpha_val = par("maxDrawAlpha");
+        color2dark = par("color2dark").boolValue();
 
         if (!readChannelGridFile())
             throw cRuntimeError("LogNormalShadowingGrid: error in reading the shadowing file");
-
-        //drawShadowMap();
     }
     else if (stage == INITSTAGE_PHYSICAL_ENVIRONMENT) {
-        drawShadowMap();
+        PhysicalEnvironment *physicalEnvironment = dynamic_cast<PhysicalEnvironment *>(getModuleByPath("environment"));
+        if (physicalEnvironment != nullptr) {
+            cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
+            addXMLchild_object(shadowsXml, &grid_map, scenarioCoordMin, scenarioCoordMax);
+            physicalEnvironment->addFromXML(shadowsXml);
+        }
     }
 }
 
@@ -70,7 +74,13 @@ std::ostream& LogNormalShadowingGrid::printToStream(std::ostream& stream, int le
 
 double LogNormalShadowingGrid::computePathLoss_parametric(mps propagationSpeed, Hz frequency, m distance, double alpha_par, double sigma_par) const
 {
-    EV_DEBUG << "Using for log-normal path loss: alpha = " << alpha_par << " and sigma = " << sigma_par << endl;
+    EV_DEBUG << "Using for log-normal path loss"
+            << ": alpha = " << alpha_par
+            << ", sigma = " << sigma_par
+            << ", propagationSpeed = " << propagationSpeed
+            << ", frequency = " << frequency
+            << ", distance = " << distance
+            << endl;
 
     //throw cRuntimeError("LogNormalShadowingGrid::computePathLoss OK");
     //exit(0);
@@ -98,6 +108,8 @@ double LogNormalShadowingGrid::computePathLoss(mps propagationSpeed, Hz frequenc
 
 double LogNormalShadowingGrid::computePathLossExt(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const
 {
+    EV_DEBUG << "Start computing log-normal path loss from TX at " << transmitter << " to RX at = " << receiver << endl;
+
     return computePathLossGrid(propagationSpeed, frequency, distance, transmitter, receiver);
 }
 
@@ -323,47 +335,38 @@ void LogNormalShadowingGrid::printMap(Cell_t *map, int ntab) {
     }
 }
 
-void LogNormalShadowingGrid::drawShadowMap(void) {
-    PhysicalEnvironment *physicalEnvironment = dynamic_cast<PhysicalEnvironment *>(getModuleByPath("environment"));
-
-    if (physicalEnvironment != nullptr) {
-        cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
-
-        //<object position="center 25 25 25" shape="cuboid 50 50 50" material="brick" fill-color="203 65 84"/>
-        /*cXMLElement *testGrid = new cXMLElement("object", "", shadowsXml);
-        testGrid->setAttribute("position", "center 25 25 25");
-        testGrid->setAttribute("shape", "cuboid 50 50 50");
-        testGrid->setAttribute("material", "vacuum");
-        testGrid->setAttribute("fill-color", "203 65 84");
-
-        shadowsXml->appendChild(testGrid);*/
-        addXMLchild_object(shadowsXml, &grid_map, scenarioCoordMin, scenarioCoordMax);
-
-        physicalEnvironment->addFromXML(shadowsXml);
-
-        //test_shadows
-        //cXMLElement *test_environment = par("testShadowDraw");
-        //physicalEnvironment->addFromXML(test_environment);
-    }
-}
-
 void LogNormalShadowingGrid::setXMLattr(cXMLElement *el, Coord posObj, double dimObj, double opacity) {
     char buffer[64];
 
     if (opacity > 1) opacity = 1;
     if (opacity < 0) opacity = 0;
 
-    //fill-color attribute
+    //fill-color e line-color attribute
 #if OMNETPP_CANVAS_VERSION >= 0x20140908
     snprintf(buffer, sizeof(buffer), "%d %d %d", max_RGB_R, max_RGB_G, max_RGB_B);
     el->setAttribute("fill-color", buffer);
 #else
     opacity = 1.0 - opacity;
-    snprintf(buffer, sizeof(buffer), "%d %d %d",
-            (int)(((double) max_RGB_R) * opacity),
-            (int)(((double) max_RGB_G) * opacity),
-            (int)(((double) max_RGB_B) * opacity));
-    el->setAttribute("fill-color", buffer);
+    if (color2dark) {
+        snprintf(buffer, sizeof(buffer), "%d %d %d",
+                (int)(((double) max_RGB_R) * opacity),
+                (int)(((double) max_RGB_G) * opacity),
+                (int)(((double) max_RGB_B) * opacity));
+        el->setAttribute("fill-color", buffer);
+
+        snprintf(buffer, sizeof(buffer), "%d %d %d", max_RGB_R, max_RGB_G, max_RGB_B);
+        el->setAttribute("line-color", buffer);
+    }
+    else {
+        snprintf(buffer, sizeof(buffer), "%d %d %d",
+                ((int)(((double) (255 - max_RGB_R)) * opacity)) + max_RGB_R,
+                ((int)(((double) (255 - max_RGB_G)) * opacity)) + max_RGB_G,
+                ((int)(((double) (255 - max_RGB_B)) * opacity)) + max_RGB_B);
+        el->setAttribute("fill-color", buffer);
+
+        snprintf(buffer, sizeof(buffer), "255 255 255");
+        el->setAttribute("line-color", buffer);
+    }
 
     opacity = 1;
 #endif
@@ -390,6 +393,7 @@ void LogNormalShadowingGrid::setXMLattr(cXMLElement *el, Coord posObj, double di
 #define NW_MASK 0x02
 #define SE_MASK 0x04
 #define SW_MASK 0x08
+#define OA_MASK 0x10
 
 void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map, Coord min, Coord max) {
 
@@ -399,16 +403,16 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
 
     double myOpacity = (myExponent - min_alpha_val) / (max_alpha_val - min_alpha_val);
 
-    EV << "addXMLchild_object. [" << min << " " << max << "]" << endl;
+    //EV << "addXMLchild_object. [" << min << " " << max << "]" << endl;
 
     //if ((map->card == GridCardinality::OVERALL) || (map->children.size() == 0)) {
     if (map->children.size() == 0) {
 
-        EV << "Appending new child. Min: " << min << " - Dim: " << max.x - min.x << endl;
+        //EV << "Appending new child. Min: " << min << " - Dim: " << max.x - min.x << endl;
 
         cXMLElement *newGrid = new cXMLElement("object", "", parent);
         setXMLattr(newGrid, min, max.x - min.x, myOpacity);
-        EV << newGrid->detailedInfo() << endl;
+        //EV << newGrid->detailedInfo() << endl;
 
         parent->appendChild(newGrid);
     }
@@ -469,7 +473,7 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
 
             cXMLElement *newGrid = new cXMLElement("object", "", parent);
             setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
-            EV << newGrid->detailedInfo() << endl;
+            //EV << newGrid->detailedInfo() << endl;
 
             parent->appendChild(newGrid);
         }
@@ -484,7 +488,7 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
 
             cXMLElement *newGrid = new cXMLElement("object", "", parent);
             setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
-            EV << newGrid->detailedInfo() << endl;
+            //EV << newGrid->detailedInfo() << endl;
 
             parent->appendChild(newGrid);
         }
@@ -499,7 +503,7 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
 
             cXMLElement *newGrid = new cXMLElement("object", "", parent);
             setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
-            EV << newGrid->detailedInfo() << endl;
+            //EV << newGrid->detailedInfo() << endl;
 
             parent->appendChild(newGrid);
         }
@@ -514,11 +518,10 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
 
             cXMLElement *newGrid = new cXMLElement("object", "", parent);
             setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
-            EV << newGrid->detailedInfo() << endl;
+            //EV << newGrid->detailedInfo() << endl;
 
             parent->appendChild(newGrid);
         }
-
     }
 }
 

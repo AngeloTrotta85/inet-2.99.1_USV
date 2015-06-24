@@ -26,6 +26,7 @@ module LogNormalShadowingGrid extends LogNormalShadowing
         int maxRGBdraw_b = default(84);			// Specify the blue (RGB) value for the shadow drawing
         double minDrawAlpha = default(2);		// Specify the min alpha val for the shadow drawing 
         double maxDrawAlpha = default(6);		// Specify the max alpha val for the shadow drawing 
+        bool color2dark = default(true);		// If true the color goes from "color" to black, if false the color goes from white to "color"
         
         double constraintAreaMinX @unit(m) = default(-1m/0); // min x position of the constraint area, unconstrained by default (negative infinity)
         double constraintAreaMinY @unit(m) = default(-1m/0); // min y position of the constraint area, unconstrained by default (negative infinity)

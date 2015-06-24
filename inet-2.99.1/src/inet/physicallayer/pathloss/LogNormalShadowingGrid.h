@@ -34,7 +34,13 @@ namespace physicallayer {
 class INET_API LogNormalShadowingGrid : public LogNormalShadowing
 {
   public:
-    enum class GridCardinality {OVERALL, NW, NE, SW, SE};
+    enum class GridCardinality {
+        OVERALL,
+        NW,
+        NE,
+        SW,
+        SE
+    };
 
     typedef struct Cell {
         double exponent;
@@ -64,7 +70,6 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
   private:
     void setXMLattr(cXMLElement *el, Coord posObj, double dimObj, double opacity);
     void addXMLchild_object(cXMLElement *parent, Cell_t *map, Coord min, Coord max);
-    void drawShadowMap(void);
     void printMap(Cell_t *map, int ntab);
     void initCellGrid(Cell_t *cell);
 
@@ -84,6 +89,7 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     int max_RGB_B;
     double min_alpha_val;
     double max_alpha_val;
+    bool color2dark;
 };
 
 } // namespace physicallayer
