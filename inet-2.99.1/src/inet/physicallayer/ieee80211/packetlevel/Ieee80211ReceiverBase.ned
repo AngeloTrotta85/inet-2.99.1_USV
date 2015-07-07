@@ -31,7 +31,7 @@ module Ieee80211ReceiverBase extends NarrowbandReceiverBase
 {
     parameters:
         string opMode @enum("a", "b", "g", "n", "p");
-        string bandName @enum("2.4 GHz", "5 GHz");
+        string bandName @enum("TVWS", "2.4 GHz", "5 GHz");
         int channelNumber;
         modulation = default("BPSK"); // TODO: this is simply wrong
         errorModelType = default("Ieee80211NistErrorModel");

@@ -54,6 +54,53 @@ Hz Ieee80211ArithmeticalBand::getCenterFreqency(int channelNumber) const
     return start + spacing * channelNumber;
 }
 
+const Ieee80211EnumeratedBand Ieee80211CompliantBands::bandTVWS("TVWS",
+{
+        MHz(474),   // 0
+        MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),      // from 1 to 10  //to define
+        MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),MHz(474),      // from 11 to 20 //to define
+        MHz(474),   // 21
+        MHz(482),   // 22
+        MHz(490),   // 23
+        MHz(498),   // 24
+        MHz(506),   // 25
+        MHz(514),   // 26
+        MHz(522),   // 27
+        MHz(530),   // 28
+        MHz(538),   // 29
+        MHz(546),   // 30
+        MHz(554),   // 31
+        MHz(562),   // 32
+        MHz(570),   // 33
+        MHz(578),   // 34
+        MHz(586),   // 35
+        MHz(594),   // 36
+        MHz(602),   // 37
+        MHz(610),   // 38
+        MHz(618),   // 39
+        MHz(626),   // 40
+        MHz(634),   // 41
+        MHz(642),   // 42
+        MHz(650),   // 43
+        MHz(658),   // 44
+        MHz(666),   // 45
+        MHz(674),   // 46
+        MHz(682),   // 47
+        MHz(690),   // 48
+        MHz(698),   // 49
+        MHz(706),   // 50
+        MHz(714),   // 51
+        MHz(722),   // 52
+        MHz(730),   // 53
+        MHz(738),   // 54
+        MHz(746),   // 55
+        MHz(754),   // 56
+        MHz(762),   // 57
+        MHz(770),   // 58
+        MHz(778),   // 59
+        MHz(786),   // 60
+});
+
 const Ieee80211EnumeratedBand Ieee80211CompliantBands::band2_4GHz("2.4 GHz",
 {
     GHz(2.412),    // 1
@@ -76,7 +123,7 @@ const Ieee80211ArithmeticalBand Ieee80211CompliantBands::band5GHz("5 GHz", GHz(5
 
 const Ieee80211ArithmeticalBand Ieee80211CompliantBands::band5_9GHz("5.9 GHz", GHz(5.86), MHz(10), 7);
 
-const std::vector<const IIeee80211Band *> Ieee80211CompliantBands::bands = {&band2_4GHz, &band5GHz, &band5_9GHz};
+const std::vector<const IIeee80211Band *> Ieee80211CompliantBands::bands = {&bandTVWS, &band2_4GHz, &band5GHz, &band5_9GHz};
 
 const IIeee80211Band *Ieee80211CompliantBands::findBand(const char *name)
 {

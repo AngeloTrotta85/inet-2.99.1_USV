@@ -76,6 +76,7 @@ class INET_API Ieee80211CompliantBands
     static const std::vector<const IIeee80211Band *> bands;
 
   public:
+    static const Ieee80211EnumeratedBand bandTVWS;
     static const Ieee80211EnumeratedBand band2_4GHz;
     static const Ieee80211ArithmeticalBand band5GHz;
     static const Ieee80211ArithmeticalBand band5_9GHz;
