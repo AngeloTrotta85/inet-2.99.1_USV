@@ -6,7 +6,7 @@
 	</shadowCell>
 	<shadowCell cardinality="SW" exponent="2" variance="3.07">
 		<shadowCell cardinality="NE" exponent="3" variance="1.87" />
-		<shadowCell cardinality="SE" exponent="3" variance="2.47" />
+		<shadowCell cardinality="SE" exponent="5.5" variance="2.47" />
 	</shadowCell>
 	<shadowCell cardinality="SE" exponent="2" variance="2.47">
 		<shadowCell cardinality="NW" exponent="3" variance="2.87">
