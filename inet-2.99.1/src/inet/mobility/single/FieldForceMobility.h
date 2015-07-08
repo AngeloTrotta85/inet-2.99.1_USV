@@ -35,6 +35,7 @@ public:
         Coord position;
         simtime_t timestamp;
         double weight;
+        double decade_factor;
     } repulsive_point_t;
 
 protected:
@@ -60,6 +61,7 @@ public:
 
 private:
   void updateFieldForce(void);
+  double calcRepulsiveForce(repulsive_point_t *rp);
 };
 
 } /* namespace inet */

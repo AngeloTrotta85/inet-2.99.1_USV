@@ -40,6 +40,8 @@ void FieldForceMobility::initialize(int stage)
         stationary = (speed == 0) && (maxacceleration == 0.0);
 
         WATCH(force);
+        WATCH_RW(force.x);
+        WATCH_RW(force.y);
     }
 }
 
@@ -56,17 +58,16 @@ void FieldForceMobility::move()
 
         angle = acos(force.x);
 
-        double rad = angle;
-        //double rad = PI * angle / 180;
-
-        Coord direction(cos(rad), sin(rad));
+        Coord direction(force);
+        direction.normalize();
         lastSpeed = direction * speed;
         double elapsedTime = (simTime() - lastUpdate).dbl();
         lastPosition += lastSpeed * elapsedTime;
 
         // do something if we reach the wall
         Coord dummy;
-        handleIfOutside(REFLECT, dummy, dummy, angle);
+        double angle_degree = 180.0*(angle/PI);
+        handleIfOutside(REFLECT, dummy, dummy, angle_degree);
 
         // accelerate
         speed += force.length() * elapsedTime;
@@ -81,7 +82,9 @@ void FieldForceMobility::move()
 }
 
 void FieldForceMobility::updateFieldForce(void) {
-    force = Coord(1,-1,0);
+    if (dblrand() < 0.05) {
+        //force = Coord((dblrand()*2.0) - 1.0, (dblrand()*2.0) - 1.0, 0);
+    }
 }
 
 } /* namespace inet */
