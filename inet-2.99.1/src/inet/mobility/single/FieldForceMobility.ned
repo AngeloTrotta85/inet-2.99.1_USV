@@ -41,7 +41,7 @@ simple FieldForceMobility extends MovingMobilityBase
         
         double volatileTimeExponentialDecay = default(0.001);
         double repulsiveForceWeight = default(10);
-        double defaultRepulsiveDecay = default(0.005);
+        double repulsiveDecay = default(0.005);
         
         double maxspeed @unit(mps) = default(5mps); // max speed of the host
         double maxacceleration = default(1); // max acceleration of linear motion (m/s2)
