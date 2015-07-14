@@ -18,7 +18,9 @@
 
 #include "inet/common/INETDefs.h"
 
-#include "inet/mobility/base/MovingMobilityBase.h"
+#include <list>
+
+#include "inet/mobility/base/LineSegmentsMobilityBase.h"
 
 namespace inet {
 
@@ -42,9 +44,24 @@ protected:
     double maxspeed;    ///< maximum speed of the host
     double maxacceleration;    ///< acceleration of linear motion
 
+    bool randomMovement;
+    double weigthRandomMovement;
+    simtime_t nextRandomChangeTime;
+    simtime_t stepRandomChangeTime;
+
+    int debugRandomRepulsivePoints;
+
+    double defaultVolatileTimeDecay;
+    double defaultRepulsiveForceWeight;
+    double defaultRepulsiveDecay;
+
     double angle;    ///< actual angle-force
     double speed;    ///< actual speed of the host
     Coord force;    ///< actual force of the host
+
+    Coord exploringForce;
+    std::list<repulsive_point_t> repulsivePointsList;
+    std::map<int, repulsive_point_t> volatileRepulsivePointsList;
 
 protected:
   virtual int numInitStages() const override { return NUM_INIT_STAGES; }
@@ -59,9 +76,20 @@ public:
   virtual double getMaxSpeed() const override { return maxspeed; }
   FieldForceMobility();
 
+  const Coord& getExploringForce() const { return exploringForce; }
+
+  void setExploringForce(const Coord& exploringForce) { this->exploringForce = exploringForce; }
+
+  void addPersistentRepulsiveForce(const Coord& pos, double weight, double decade_factor);
+  void addPersistentRepulsiveForce(const Coord& pos);
+
+  void setVolatileRepulsiveForce(int id, const Coord& pos, double weight, double decade_factor);
+  void setVolatileRepulsiveForce(int id, const Coord& pos);
+
 private:
   void updateFieldForce(void);
-  double calcRepulsiveForce(repulsive_point_t *rp);
+  Coord calcRepulsiveForce(repulsive_point_t *rp);
+  Coord calcRepulsiveForceTimeDecade(repulsive_point_t *rp, double timeDecateFac);
 };
 
 } /* namespace inet */

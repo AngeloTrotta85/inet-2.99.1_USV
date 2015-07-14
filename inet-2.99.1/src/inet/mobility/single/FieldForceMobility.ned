@@ -32,6 +32,17 @@ simple FieldForceMobility extends MovingMobilityBase
         double initialY @unit(m) = default(uniform(this.constraintAreaMinY, this.constraintAreaMaxY));
         double initialZ @unit(m) = default(uniform(this.constraintAreaMinZ, this.constraintAreaMaxZ));
         bool initFromDisplayString = default(true);
+        
+        bool randomMovement = default (false);			// random movement
+        volatile double randomStepTimeChange @unit(s) = default(20s); // frequency of changing force angle (can be random)
+        double weigthRandomMovement = default (10);		// weigth of the movement force
+        
+        int debugRandomRepulsivePoints = default(0);	// define a random number of repulsive force (for debug)
+        
+        double volatileTimeExponentialDecay = default(0.001);
+        double repulsiveForceWeight = default(10);
+        double defaultRepulsiveDecay = default(0.005);
+        
         double maxspeed @unit(mps) = default(5mps); // max speed of the host
         double maxacceleration = default(1); // max acceleration of linear motion (m/s2)
         @class(FieldForceMobility);
