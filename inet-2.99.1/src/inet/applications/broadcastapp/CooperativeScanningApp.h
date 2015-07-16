@@ -23,6 +23,9 @@
 #include "inet/applications/base/ApplicationBase.h"
 #include "inet/transportlayer/contract/udp/UDPSocket.h"
 
+#include "inet/applications/broadcastapp/ScannedPointsList_m.h"
+#include "inet/applications/broadcastapp/USVControl.h"
+
 namespace inet {
 
 /**
@@ -50,6 +53,9 @@ class INET_API CooperativeScanningApp : public ApplicationBase
     static simsignal_t sentPkSignal;
     static simsignal_t rcvdPkSignal;
 
+  private:
+    USVControl *usv;
+
   protected:
     virtual int numInitStages() const override { return NUM_INIT_STAGES; }
     virtual void initialize(int stage) override;
@@ -69,6 +75,8 @@ class INET_API CooperativeScanningApp : public ApplicationBase
     virtual bool handleNodeStart(IDoneCallback *doneCallback) override;
     virtual bool handleNodeShutdown(IDoneCallback *doneCallback) override;
     virtual void handleNodeCrash() override;
+
+    //virtual void fillScannedPointPkt (ScannedPointsList *pkt);
 
   public:
     CooperativeScanningApp() {}

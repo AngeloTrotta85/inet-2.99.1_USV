@@ -22,6 +22,7 @@ package inet.examples.myexamples.LogNormalGridTestTX;
 import inet.environment.common.PhysicalEnvironment;
 import inet.networklayer.configurator.ipv4.IPv4NetworkConfigurator;
 import inet.node.inet.AdhocHost;
+import inet.node.inet.USVHost;
 //import inet.node.inet.WirelessHost;
 import inet.physicallayer.ieee80211.packetlevel.Ieee80211ScalarRadioMedium;
 
@@ -34,7 +35,7 @@ network LogNormalGridTestTX
             @display("p=20,20;i=device/antennatower");
         }
 
-        host[numHosts]: AdhocHost {
+        host[numHosts]: USVHost {
             parameters:
                 @display("r=,,#707070");
         }

@@ -52,6 +52,8 @@ void CooperativeScanningApp::initialize(int stage)
         if (stopTime >= SIMTIME_ZERO && stopTime < startTime)
             throw cRuntimeError("Invalid startTime/stopTime parameters");
         selfMsg = new cMessage("sendTimer");
+
+        usv = check_and_cast<USVControl *>(this->getParentModule()->getSubmodule("usv_brain"));
     }
 }
 
@@ -106,13 +108,38 @@ L3Address CooperativeScanningApp::chooseDestAddr()
     }
     return destAddresses[k];
 }
+/*
+void CooperativeScanningApp::fillScannedPointPkt (ScannedPointsList *pkt) {
 
+    std::list<USVControl::PointScan> pl;
+
+    usv->getScannedPointsList(pl);
+
+    pkt->setScanPointsArraySize(pl.size());
+    int i = 0;
+    for (std::list<USVControl::PointScan>::iterator it = pl.begin(); it != pl.end(); it++) {
+        USVControl::PointScan *ps = &(*it);
+        struct ScannedPoint newP;
+
+        newP.position = ps->pos;
+        newP.timestamp = ps->scan_timestamp;
+
+        pkt->setScanPoints(i++, newP);
+    }
+
+    pkt->setByteLength(pkt->getScanPointsArraySize() * sizeof(struct ScannedPoint));
+
+}
+*/
 void CooperativeScanningApp::sendPacket()
 {
-    char msgName[32];
-    sprintf(msgName, "CooperativeScanningApp-%d", numSent);
-    cPacket *payload = new cPacket(msgName);
-    payload->setByteLength(par("messageLength").longValue());
+    //char msgName[32];
+    //sprintf(msgName, "CooperativeScanningApp-%d", numSent);
+    //ScannedPointsList *payload = new ScannedPointsList(msgName);
+
+    //fillScannedPointPkt(payload);
+    //payload->setByteLength(par("messageLength").longValue());
+    cPacket *payload = usv->getPacketToSend();
 
     UDPSocket::SendOptions pktOpt;
 
@@ -135,10 +162,15 @@ void CooperativeScanningApp::sendPacket()
         }
     }
 
-    emit(sentPkSignal, payload);
-    socket.sendTo(payload, destAddr, destPort, &pktOpt);
-    //socket.sendTo(payload, destAddr, destPort);
-    numSent++;
+    if (payload->getByteLength() > 0) {
+        emit(sentPkSignal, payload);
+        socket.sendTo(payload, destAddr, destPort, &pktOpt);
+        //socket.sendTo(payload, destAddr, destPort);
+        numSent++;
+    }
+    else {
+        delete (payload);
+    }
 }
 
 void CooperativeScanningApp::processStart()

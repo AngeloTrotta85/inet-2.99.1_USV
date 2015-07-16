@@ -21,6 +21,9 @@
 #include "inet/applications/base/ApplicationBase.h"
 #include "inet/transportlayer/contract/udp/UDPSocket.h"
 
+#include "inet/applications/broadcastapp/ScannedPointsList_m.h"
+#include "inet/applications/broadcastapp/USVControl.h"
+
 namespace inet {
 
 /**
@@ -61,6 +64,9 @@ class INET_API CooperativeScanningSink : public ApplicationBase
     virtual bool handleNodeStart(IDoneCallback *doneCallback) override;
     virtual bool handleNodeShutdown(IDoneCallback *doneCallback) override;
     virtual void handleNodeCrash() override;
+
+  private:
+    USVControl *usv;
 };
 
 } /* namespace inet */

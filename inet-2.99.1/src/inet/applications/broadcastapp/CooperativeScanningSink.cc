@@ -44,6 +44,8 @@ void CooperativeScanningSink::initialize(int stage)
         if (stopTime >= SIMTIME_ZERO && stopTime < startTime)
             throw cRuntimeError("Invalid startTime/stopTime parameters");
         selfMsg = new cMessage("CooperativeScanningSinkTimer");
+
+        usv = check_and_cast<USVControl *>(this->getParentModule()->getSubmodule("usv_brain"));
     }
 }
 
@@ -131,6 +133,10 @@ void CooperativeScanningSink::processPacket(cPacket *pk)
 {
     EV_INFO << "Received packet: " << UDPSocket::getReceivedPacketInfo(pk) << endl;
     emit(rcvdPkSignal, pk);
+
+    ScannedPointsList *splPKT = dynamic_cast<ScannedPointsList *>(pk);
+    if(pk) usv->addScannedPointsFromOthers(pk);
+
     delete pk;
 
     numReceived++;
