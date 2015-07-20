@@ -139,7 +139,7 @@ void CooperativeScanningApp::sendPacket()
 
     //fillScannedPointPkt(payload);
     //payload->setByteLength(par("messageLength").longValue());
-    cPacket *payload = usv->getPacketToSend();
+    //cPacket *payload = usv->getPacketToSend();
 
     UDPSocket::SendOptions pktOpt;
 
@@ -162,15 +162,12 @@ void CooperativeScanningApp::sendPacket()
         }
     }
 
-    if (payload->getByteLength() > 0) {
-        emit(sentPkSignal, payload);
-        socket.sendTo(payload, destAddr, destPort, &pktOpt);
-        //socket.sendTo(payload, destAddr, destPort);
-        numSent++;
-    }
-    else {
-        delete (payload);
-    }
+    cPacket *payload = usv->getPacketToSend();
+
+    emit(sentPkSignal, payload);
+    socket.sendTo(payload, destAddr, destPort, &pktOpt);
+    //socket.sendTo(payload, destAddr, destPort);
+    numSent++;
 }
 
 void CooperativeScanningApp::processStart()

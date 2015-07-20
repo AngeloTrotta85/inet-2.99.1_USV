@@ -67,6 +67,8 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     virtual double computePathLoss(mps propagationSpeed, Hz frequency, m distance) const override;
     virtual double computePathLossExt(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const override;
 
+    void getAlphaSigmaFromAbsCoord(Coord point, double &alpha_p, double &sigma_p) const;
+
   private:
     void setXMLattr(cXMLElement *el, Coord posObj, double dimObj, double opacity);
     void addXMLchild_object(cXMLElement *parent, Cell_t *map, Coord min, Coord max);
@@ -77,6 +79,7 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     double computePathLoss_parametric(mps propagationSpeed, Hz frequency, m distance, double alpha_par, double sigma_par) const;
 
     void getAlphaSigmaFromCoord(const Cell_t *grid, Coord min, Coord max, Coord point, double &alpha_p, double &sigma_p) const;
+
 
   private:
     Cell_t grid_map;

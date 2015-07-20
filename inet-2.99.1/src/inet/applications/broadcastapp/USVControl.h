@@ -17,11 +17,15 @@
 #define USVCONTROL_H_
 
 #include <list>
+#include <vector>
 
 #include "inet/common/INETDefs.h"
 #include "inet/common/geometry/common/Coord.h"
 
 #include "inet/applications/broadcastapp/ScannedPointsList_m.h"
+
+#include "inet/mobility/single/FieldForceMobility.h"
+#include "inet/physicallayer/pathloss/LogNormalShadowingGrid.h"
 
 
 namespace inet {
@@ -30,9 +34,19 @@ class INET_API USVControl : public cSimpleModule {
 
 public:
     typedef struct PointScan_s {
+        int scanningHostAddr;
+        unsigned int scanningID;
         Coord pos;
         simtime_t scan_timestamp;
     } PointScan;
+
+    typedef struct PointMapSignalCharacteristics_s {
+        double pathloss_alpha;
+        double lognormal_sigma;
+    } PointMapSignalCharacteristics;
+
+
+
 
 protected:
 
@@ -44,6 +58,16 @@ protected:
 
     /** @brief This modules should only receive self-messages. */
     virtual void handleMessage(cMessage *msg) override;
+
+    void checkIfScan(void);
+
+    double calculateUncorrelatedDistance(Coord point);
+    double calculateDecayFromWeigthAndChannelLoss(double desiredRatio, double fieldWeigth, Coord point);
+    double calculateForceFromPoint(Coord point);
+
+    void updateMobilityPointsParameters(void);
+
+    void executeScanning(void);
 
 public:
     USVControl();
@@ -58,8 +82,36 @@ private:
     std::list<PointScan> scannedPoints_fromOthers;
     std::list<PointScan> scannedPoints;
     int pktGenerated;
+    unsigned int scanningID_idx;
+
+    bool pathLossMapAvailable;
+
+    double defaultRepulsiveWeigth;
+    double desiredWeigthRatio;
+
+    FieldForceMobility *ffmob;
+    physicallayer::LogNormalShadowingGrid *pathLossModel;
+
+    cMessage *checkScanTimer;
+    simtime_t checkScanTimeStep;
+
+    std::vector< std::vector<PointMapSignalCharacteristics> > signalPropMap;
+    Coord signalMapOffset;
 
 };
+
+inline std::ostream& operator<<(std::ostream& os, const USVControl::PointScan& ps)
+{
+
+
+   return  os << "Addr:" << ps.scanningHostAddr
+            << " - ID:" << ps.scanningID
+            << " - Coord:" << ps.pos
+            << " - Time:" << ps.scan_timestamp;
+
+    //return stream;
+    //return os << "(" << coord.x << ", " << coord.y << ", " << coord.z << ")";
+}
 
 } /* namespace inet */
 

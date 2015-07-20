@@ -20,5 +20,10 @@ package inet.applications.broadcastapp;
 //
 simple USVControl
 {
+    double defaultRepulsiveWeigth = default(10); 	// define the weigth parameter in the repulsive force calculation
+    double desiredWeigthRatio = default(0.05);		// define the desired ratio of the weigth to calculate the distance from 2 points
+    bool pathLossMapAvailable = default(true);		// define if the control module has the pathloss map available
+    double checkScanTimeStep @unit(s) = default (3s);	// time to check the scan method
+    
     @display("i=misc/joystick");
 }

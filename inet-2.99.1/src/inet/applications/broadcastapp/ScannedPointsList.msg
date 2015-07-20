@@ -21,6 +21,7 @@ cplusplus {{
 
 
 struct ScannedPoint {
+    	unsigned int scanID;
         inet::Coord position;
         simtime_t timestamp;
         //double weight;
@@ -29,11 +30,14 @@ struct ScannedPoint {
 
 }}
 
-struct ScannedPoint;
-
 namespace inet;
+
+struct ScannedPoint;
+class Coord;
 
 packet ScannedPointsList
 {
+    int nodeAddr;
+    Coord nodePosition;
     ScannedPoint scanPoints[];
 }

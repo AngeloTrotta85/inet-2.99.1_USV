@@ -60,8 +60,9 @@ protected:
     Coord force;    ///< actual force of the host
 
     Coord exploringForce;
-    std::list<repulsive_point_t> repulsivePointsList;
-    std::map<int, repulsive_point_t> volatileRepulsivePointsList;
+    unsigned int idxRPL;
+    std::map<unsigned int, repulsive_point_t> repulsivePointsList;
+    std::map<unsigned int, repulsive_point_t> volatileRepulsivePointsList;
 
 protected:
   virtual int numInitStages() const override { return NUM_INIT_STAGES; }
@@ -80,11 +81,11 @@ public:
 
   void setExploringForce(const Coord& exploringForce) { this->exploringForce = exploringForce; }
 
-  void addPersistentRepulsiveForce(const Coord& pos, double weight, double decade_factor);
-  void addPersistentRepulsiveForce(const Coord& pos);
+  void addPersistentRepulsiveForce(unsigned int id, const Coord& pos, double weight, double decade_factor);
+  void addPersistentRepulsiveForce(unsigned int id, const Coord& pos);
 
-  void setVolatileRepulsiveForce(int id, const Coord& pos, double weight, double decade_factor);
-  void setVolatileRepulsiveForce(int id, const Coord& pos);
+  void setVolatileRepulsiveForce(unsigned int addr, const Coord& pos, double weight, double decade_factor);
+  void setVolatileRepulsiveForce(unsigned int addr, const Coord& pos);
 
 private:
   void updateFieldForce(void);

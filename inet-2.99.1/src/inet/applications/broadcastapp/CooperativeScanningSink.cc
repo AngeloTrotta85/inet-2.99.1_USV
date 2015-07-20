@@ -135,7 +135,7 @@ void CooperativeScanningSink::processPacket(cPacket *pk)
     emit(rcvdPkSignal, pk);
 
     ScannedPointsList *splPKT = dynamic_cast<ScannedPointsList *>(pk);
-    if(pk) usv->addScannedPointsFromOthers(pk);
+    if(splPKT) usv->addScannedPointsFromOthers(splPKT);
 
     delete pk;
 

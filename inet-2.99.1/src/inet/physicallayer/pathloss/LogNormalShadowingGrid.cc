@@ -113,6 +113,10 @@ double LogNormalShadowingGrid::computePathLossExt(mps propagationSpeed, Hz frequ
     return computePathLossGrid(propagationSpeed, frequency, distance, transmitter, receiver);
 }
 
+void LogNormalShadowingGrid::getAlphaSigmaFromAbsCoord(Coord point, double &alpha_p, double &sigma_p) const {
+    getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, point, alpha_p, sigma_p);
+}
+
 void LogNormalShadowingGrid::getAlphaSigmaFromCoord(const Cell_t *grid, Coord min, Coord max, Coord point, double &alpha_p, double &sigma_p) const
 {
 

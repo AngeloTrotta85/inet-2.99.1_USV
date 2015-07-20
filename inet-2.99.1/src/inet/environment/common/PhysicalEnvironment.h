@@ -98,7 +98,7 @@ class INET_API PhysicalEnvironment : public cModule, public IPhysicalEnvironment
     virtual void parseMaterials(cXMLElement *xml);
     virtual void parseObjects(cXMLElement *xml);
 
-    virtual void updateCanvas();
+    //virtual void updateCanvas();
 
     virtual void computeFacePoints(const PhysicalObject *object, std::vector<std::vector<Coord> >& faces, const Rotation& rotation);
     virtual EulerAngles computeViewAngle(const char *viewAngle);
@@ -125,6 +125,7 @@ class INET_API PhysicalEnvironment : public cModule, public IPhysicalEnvironment
 
     // added by Angelo Trotta
     virtual void addFromXML(cXMLElement *xml);
+    virtual void updateCanvas();    // made public
 };
 
 } // namespace physicalenvironment

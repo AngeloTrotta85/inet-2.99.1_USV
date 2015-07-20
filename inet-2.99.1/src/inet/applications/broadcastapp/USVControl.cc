@@ -15,6 +15,7 @@
 
 #include "inet/applications/broadcastapp/USVControl.h"
 
+#include "inet/environment/common/PhysicalEnvironment.h"
 
 namespace inet {
 
@@ -22,23 +23,204 @@ Define_Module(USVControl);
 
 USVControl::USVControl() {
     pktGenerated = 0;
+    scanningID_idx = 0;
 }
 
 /** @brief Initializes mobility model parameters. */
 void USVControl::initialize(int stage) {
+    if (stage == INITSTAGE_LOCAL) {
 
+        pathLossMapAvailable = par("pathLossMapAvailable").boolValue();
+        defaultRepulsiveWeigth = par("defaultRepulsiveWeigth");
+        desiredWeigthRatio = par("desiredWeigthRatio");
+
+        ffmob = check_and_cast<FieldForceMobility *>(this->getParentModule()->getSubmodule("mobility"));
+        pathLossModel = check_and_cast<physicallayer::LogNormalShadowingGrid *>(this->getParentModule()->getParentModule()->getSubmodule("radioMedium")->getSubmodule("pathLoss"));
+
+        signalMapOffset = ffmob->getConstraintAreaMin();
+
+        //signalPropMap.resize((int)(ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x));
+        signalPropMap.resize((int)(ffmob->getConstraintAreaMax().x));
+        for (unsigned int x = 0; x < signalPropMap.size(); x++) {
+            //signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y));
+            signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y));
+
+            for (unsigned int y = 0; y < signalPropMap[x].size(); y++) {
+                signalPropMap[x][y].pathloss_alpha = 2;
+                signalPropMap[x][y].lognormal_sigma = 1;
+            }
+        }
+
+        checkScanTimeStep = par("checkScanTimeStep");
+        checkScanTimer = new cMessage("checkScan");
+        scheduleAt(simTime() + checkScanTimeStep + dblrand(), checkScanTimer);
+
+        WATCH_LIST(scannedPoints_fromOthers);
+        WATCH_LIST(scannedPoints);
+    }
+    else if (stage == INITSTAGE_PHYSICAL_LAYER) {
+        if (pathLossMapAvailable) {
+
+            // copy the map from the pathloss simulation module
+            for (unsigned int x = 0; x < signalPropMap.size(); x++) {
+                for (unsigned int y = 0; y < signalPropMap[x].size(); y++) {
+
+                    pathLossModel->getAlphaSigmaFromAbsCoord(Coord(x, y),
+                            signalPropMap[x][y].pathloss_alpha,
+                            signalPropMap[x][y].lognormal_sigma);
+
+                }
+            }
+
+        }
+    }
 }
 
 /** @brief This modules should only receive self-messages. */
 void USVControl::handleMessage(cMessage *msg) {
+    if (msg == checkScanTimer) {
+        checkIfScan();
 
+        scheduleAt(simTime() + checkScanTimeStep, msg);
+    }
+}
+
+void USVControl::checkIfScan(void) {
+    double probToScan, maxForce;
+
+    maxForce = -1;
+
+    for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
+        PointScan *ps = &(*it);
+        double pointForce = calculateForceFromPoint(ps->pos);
+        if (pointForce > maxForce) maxForce = pointForce;
+    }
+
+    for (std::list<PointScan>::iterator it = scannedPoints.begin(); it != scannedPoints.end(); it++) {
+        PointScan *ps = &(*it);
+        double pointForce = calculateForceFromPoint(ps->pos);
+        if (pointForce > maxForce) maxForce = pointForce;
+    }
+
+    probToScan = 1.0 - (maxForce / defaultRepulsiveWeigth);  // all the force cannot be greater then "defaultRepulsiveWeigth"
+
+    if (dblrand() < probToScan) {
+
+        EV << "Making the scan" << endl;
+
+        // make the scan
+        executeScanning();
+
+        {
+            physicallayer::PhysicalEnvironment *physicalEnvironment = dynamic_cast<physicallayer::PhysicalEnvironment *>(getModuleByPath("environment"));
+            if (physicalEnvironment != nullptr) {
+                char buffer[100];
+
+                cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
+
+                cXMLElement *newPoint = new cXMLElement("object", "", shadowsXml);
+                newPoint->setAttribute("fill-color", "0 200 10");
+                newPoint->setAttribute("line-color", "0 200 10");
+
+                //position attribute
+                snprintf(buffer, sizeof(buffer), "center %lf %lf %lf", ffmob->getCurrentPosition().x, ffmob->getCurrentPosition().y, ffmob->getCurrentPosition().z);
+                newPoint->setAttribute("position", buffer);
+
+                //shape attribute
+                newPoint->setAttribute("shape", "sphere 5");
+
+                //material and fill-color constant
+                newPoint->setAttribute("material", "vacuum");
+
+                shadowsXml->appendChild(newPoint);
+
+                physicalEnvironment->addFromXML(shadowsXml);
+
+                physicalEnvironment->updateCanvas();
+            }
+        }
+
+        // add point to the scanned list
+        PointScan newps;
+        newps.pos= ffmob->getCurrentPosition();
+        newps.scan_timestamp = simTime();
+        newps.scanningHostAddr = this->getParentModule()->getIndex();
+        newps.scanningID = scanningID_idx++;
+        scannedPoints.push_back(newps);
+
+        // at the end update the parameters of the mobility control
+        updateMobilityPointsParameters();
+    }
+}
+
+void USVControl::executeScanning(void) {
+    //TODO probabilmente servità uno start_scan e un end_scan
+}
+
+double USVControl::calculateUncorrelatedDistance(Coord point) {
+    double alpha_loss;
+    //double sigma_loss;
+
+    alpha_loss = signalPropMap[point.x][point.y].pathloss_alpha;
+    //sigma_loss = signalPropMap[point.x][point.y].lognormal_sigma;
+
+    //TODO faccio semplice, da modificare
+    double ris;
+
+    // faccio una proporzione per cui urban=8(alpha>=5), suburban=500(alpha<=2)
+    if (alpha_loss < 2) alpha_loss = 2;
+    if (alpha_loss > 5) alpha_loss = 5;
+
+    ris = (((alpha_loss - 2) / (5 - 2)) * (8 - 50)) + 50;   //uscito dalla retta passante per 2 punti (2,50)-(5,8)
+
+    return ris;
+}
+
+double USVControl::calculateDecayFromWeigthAndChannelLoss(double desiredRatio, double fieldWeigth, Coord point) {
+    double desiredDistance, ris;
+
+    // calculate the desired distance
+    desiredDistance = calculateUncorrelatedDistance(point);
+
+    ris = log(1/desiredRatio) / (desiredDistance*desiredDistance);
+
+    return ris;
+}
+
+double USVControl::calculateForceFromPoint(Coord point) {
+    double decayPoint = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, point);
+    double sq_distance = ffmob->getCurrentPosition().sqrdist(point);
+
+    return (defaultRepulsiveWeigth * exp(-(decayPoint * sq_distance)));
+}
+
+void USVControl::updateMobilityPointsParameters(void) {
+    //TODO
+
+    for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
+        PointScan *ps = &(*it);
+
+        double decade_factor = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
+
+        ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->pos, defaultRepulsiveWeigth, decade_factor);
+    }
+
+    for (std::list<PointScan>::iterator it = scannedPoints.begin(); it != scannedPoints.end(); it++) {
+        PointScan *ps = &(*it);
+
+        double decade_factor = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
+
+        EV << "Updating point: " << *ps << endl;
+
+        ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->pos, defaultRepulsiveWeigth, decade_factor);
+    }
 }
 
 ScannedPointsList *USVControl::getPacketToSend(void) {
     char msgName[32];
     ScannedPointsList *pkt;
 
-    sprintf(msgName, "CooperativeScanningApp-%d", pktGenerated);
+    sprintf(msgName, "CooperativeScanningApp-%d", pktGenerated++);
     pkt = new ScannedPointsList(msgName);
 
     // fill the packet with the scanned points
@@ -50,33 +232,55 @@ ScannedPointsList *USVControl::getPacketToSend(void) {
 
         newP.position = ps->pos;
         newP.timestamp = ps->scan_timestamp;
+        newP.scanID = ps->scanningID;
 
         pkt->setScanPoints(i++, newP);
     }
 
-    pkt->setByteLength(pkt->getScanPointsArraySize() * sizeof(struct ScannedPoint));
+    pkt->setNodePosition(ffmob->getCurrentPosition());
+    pkt->setNodeAddr(this->getParentModule()->getIndex());
 
-    if (pkt->getByteLength() > 0) pktGenerated++;
+    pkt->setByteLength(pkt->getScanPointsArraySize() * sizeof(struct ScannedPoint) + 64);
 
     return pkt;
 }
 
 void USVControl::addScannedPointsFromOthers(ScannedPointsList *pkt) {
-    for (int i = 0; i < pkt->getScanPointsArraySize(); i++) {
+    double decayVolatileVal = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, pkt->getNodePosition());
+
+    //EV << "Setting force from " << pkt->getNodeAddr() << " with weigth " << defaultRepulsiveWeigth <<
+    //        " and decay exp " << decayVolatileVal << endl;
+
+    ffmob->setVolatileRepulsiveForce(pkt->getNodeAddr(), pkt->getNodePosition(), defaultRepulsiveWeigth, decayVolatileVal);
+
+
+    for (unsigned int i = 0; i < pkt->getScanPointsArraySize(); i++) {
         bool already = false;
 
         for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
             PointScan *ps = &(*it);
-            if (ps->pos == pkt->getScanPoints(i).position) {
+
+            if ((ps->scanningHostAddr == pkt->getNodeAddr()) && (ps->scanningID == pkt->getScanPoints(i).scanID)){
+            //if (ps->pos == pkt->getScanPoints(i).position) {
                 already = true;
                 break;
             }
         }
 
         if (!already){
-            scannedPoints_fromOthers.push_back(pkt->getScanPoints(i));
+            ScannedPoint *sp = &(pkt->getScanPoints(i));
+            PointScan ps;
+
+            ps.pos = sp->position;
+            ps.scan_timestamp = sp->timestamp;
+            ps.scanningID = sp->scanID;
+            ps.scanningHostAddr = pkt->getNodeAddr();
+
+            scannedPoints_fromOthers.push_back(ps);
         }
     }
+
+    updateMobilityPointsParameters();
 }
 
 } /* namespace inet */
