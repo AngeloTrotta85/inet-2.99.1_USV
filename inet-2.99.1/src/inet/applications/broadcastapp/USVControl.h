@@ -30,6 +30,8 @@
 
 namespace inet {
 
+class FieldForceMobility;
+
 class INET_API USVControl : public cSimpleModule {
 
 public:
@@ -69,12 +71,16 @@ protected:
 
     void executeScanning(void);
 
+    void drawScannedPoint(Coord position);
+
 public:
     USVControl();
 
     ScannedPointsList *getPacketToSend(void);
 
     void addScannedPointsFromOthers(ScannedPointsList *pkt);
+
+    void getAlphaSigmaInPoint(Coord point, double &alpha, double &sigma);
 
 
 private:
@@ -97,6 +103,11 @@ private:
 
     std::vector< std::vector<PointMapSignalCharacteristics> > signalPropMap;
     Coord signalMapOffset;
+
+    // scanned point color
+    int r_point_col;
+    int g_point_col;
+    int b_point_col;
 
 };
 

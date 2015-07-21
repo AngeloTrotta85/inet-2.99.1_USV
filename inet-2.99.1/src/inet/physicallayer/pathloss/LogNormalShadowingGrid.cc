@@ -53,11 +53,13 @@ void LogNormalShadowingGrid::initialize(int stage)
             throw cRuntimeError("LogNormalShadowingGrid: error in reading the shadowing file");
     }
     else if (stage == INITSTAGE_PHYSICAL_ENVIRONMENT) {
-        PhysicalEnvironment *physicalEnvironment = dynamic_cast<PhysicalEnvironment *>(getModuleByPath("environment"));
-        if (physicalEnvironment != nullptr) {
-            cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
-            addXMLchild_object(shadowsXml, &grid_map, scenarioCoordMin, scenarioCoordMax);
-            physicalEnvironment->addFromXML(shadowsXml);
+        if (ev.isGUI()) {
+            PhysicalEnvironment *physicalEnvironment = dynamic_cast<PhysicalEnvironment *>(getModuleByPath("environment"));
+            if (physicalEnvironment != nullptr) {
+                cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
+                addXMLchild_object(shadowsXml, &grid_map, scenarioCoordMin, scenarioCoordMax);
+                physicalEnvironment->addFromXML(shadowsXml);
+            }
         }
     }
 }
@@ -376,11 +378,11 @@ void LogNormalShadowingGrid::setXMLattr(cXMLElement *el, Coord posObj, double di
 #endif
 
     //position attribute
-    snprintf(buffer, sizeof(buffer), "min %lf %lf %lf", posObj.x, posObj.y, posObj.z);
+    snprintf(buffer, sizeof(buffer), "min %lf %lf %lf", posObj.x, posObj.y, 0.0);
     el->setAttribute("position", buffer);
 
     //shape attribute
-    snprintf(buffer, sizeof(buffer), "cuboid %lf %lf %lf", dimObj, dimObj, dimObj);
+    snprintf(buffer, sizeof(buffer), "cuboid %lf %lf %lf", dimObj, dimObj, 1.0);
     el->setAttribute("shape", buffer);
 
     //material and fill-color constant

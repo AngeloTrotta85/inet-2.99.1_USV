@@ -21,8 +21,11 @@
 #include <list>
 
 #include "inet/mobility/base/LineSegmentsMobilityBase.h"
+#include "inet/applications/broadcastapp/USVControl.h"
 
 namespace inet {
+
+class USVControl;
 
 /**
  * @brief Field force based movement model. See NED file for more info.
@@ -63,6 +66,8 @@ protected:
     unsigned int idxRPL;
     std::map<unsigned int, repulsive_point_t> repulsivePointsList;
     std::map<unsigned int, repulsive_point_t> volatileRepulsivePointsList;
+
+    USVControl *usv_control;
 
 protected:
   virtual int numInitStages() const override { return NUM_INIT_STAGES; }

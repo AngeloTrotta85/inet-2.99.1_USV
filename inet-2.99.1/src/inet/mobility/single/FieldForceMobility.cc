@@ -30,7 +30,7 @@ FieldForceMobility::FieldForceMobility()
     exploringForce = Coord::ZERO;
     debugRandomRepulsivePoints = 0;
 
-    idxRPL = 1000;
+    idxRPL = 10000;
 }
 
 void FieldForceMobility::initialize(int stage)
@@ -54,6 +54,8 @@ void FieldForceMobility::initialize(int stage)
         nextRandomChangeTime = simTime() + (stepRandomChangeTime * dblrand());
 
         debugRandomRepulsivePoints = par("debugRandomRepulsivePoints");
+
+        usv_control = dynamic_cast <USVControl *> (this->getParentModule()->getSubmodule("usv_brain"));
 
         //WATCH_LIST(repulsivePointsList);
         WATCH(exploringForce);
@@ -123,12 +125,68 @@ void FieldForceMobility::updateFieldForce(void) {
     //Add node exploring-force ************************************************************
     if (randomMovement) {
         if (nextRandomChangeTime <= simTime()) {
-            do {
-                exploringForce.x = (dblrand() * 2.0) - 1.0;
-                exploringForce.y = (dblrand() * 2.0) - 1.0;
-            } while(exploringForce.length() < 0.1);     // to avoid math problems
+            EV << "RANDOMIZING exploring force" << endl;
+            if (lastPosition.x < (constraintAreaMin.x + 10)) {
+                do {
+                    exploringForce.x = dblrand();
+                    exploringForce.y = (dblrand() * 2.0) - 1.0;
+                } while(exploringForce.length() < 0.1);     // to avoid math problems
+            }
+            else if (lastPosition.x > (constraintAreaMax.x - 10)) {
+                do {
+                    exploringForce.x = dblrand() - 1.0;
+                    exploringForce.y = (dblrand() * 2.0) - 1.0;
+                } while(exploringForce.length() < 0.1);     // to avoid math problems
+            }
+            else if (lastPosition.y < (constraintAreaMin.y + 10)) {
+                do {
+                    exploringForce.x = (dblrand() * 2.0) - 1.0;
+                    exploringForce.y = dblrand();
+                } while(exploringForce.length() < 0.1);     // to avoid math problems
+            }
+            else if (lastPosition.y > (constraintAreaMax.y - 10)) {
+                do {
+                    exploringForce.x = (dblrand() * 2.0) - 1.0;
+                    exploringForce.y = dblrand() - 1.0;
+                } while(exploringForce.length() < 0.1);     // to avoid math problems
+            }
+            else {
+                if (exploringForce == Coord::ZERO) {
+                    do {
+                        exploringForce.x = (dblrand() * 2.0) - 1.0;
+                        exploringForce.y = (dblrand() * 2.0) - 1.0;
+                    } while(exploringForce.length() < 0.1);     // to avoid math problems
+                    exploringForce.normalize();
+                    exploringForce *= weigthRandomMovement;
+                }
+
+                Coord perturbing_force = Coord::ZERO;
+                do {
+                    perturbing_force.x = (dblrand() * 2.0) - 1.0;
+                    perturbing_force.y = (dblrand() * 2.0) - 1.0;
+                } while(perturbing_force.length() < 0.1);     // to avoid math problems
+                perturbing_force.normalize();
+                perturbing_force *= exploringForce.length();
+
+                EV << "Perturbing the old exploring force: " << exploringForce << " by " << perturbing_force <<  endl;
+
+                exploringForce += perturbing_force;
+            }
+
+
+            EV << "First guess for exploring force: " << exploringForce << endl;
+
             exploringForce.normalize();
-            exploringForce *= weigthRandomMovement;
+
+            if (usv_control) {
+                double a, s;
+                usv_control->getAlphaSigmaInPoint(lastPosition, a, s);
+                if (a > 5.0) a=5.0;
+
+                exploringForce *= weigthRandomMovement * (a / 5.0);
+            } else  {
+                exploringForce *= weigthRandomMovement;
+            }
 
             speed = 0;
 

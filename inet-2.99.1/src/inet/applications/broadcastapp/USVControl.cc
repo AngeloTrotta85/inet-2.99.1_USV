@@ -55,6 +55,11 @@ void USVControl::initialize(int stage) {
         checkScanTimer = new cMessage("checkScan");
         scheduleAt(simTime() + checkScanTimeStep + dblrand(), checkScanTimer);
 
+        // randomize the color
+        r_point_col = rand() % 256;
+        g_point_col = rand() % 256;
+        b_point_col = rand() % 256;
+
         WATCH_LIST(scannedPoints_fromOthers);
         WATCH_LIST(scannedPoints);
     }
@@ -111,34 +116,8 @@ void USVControl::checkIfScan(void) {
         // make the scan
         executeScanning();
 
-        {
-            physicallayer::PhysicalEnvironment *physicalEnvironment = dynamic_cast<physicallayer::PhysicalEnvironment *>(getModuleByPath("environment"));
-            if (physicalEnvironment != nullptr) {
-                char buffer[100];
-
-                cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
-
-                cXMLElement *newPoint = new cXMLElement("object", "", shadowsXml);
-                newPoint->setAttribute("fill-color", "0 200 10");
-                newPoint->setAttribute("line-color", "0 200 10");
-
-                //position attribute
-                snprintf(buffer, sizeof(buffer), "center %lf %lf %lf", ffmob->getCurrentPosition().x, ffmob->getCurrentPosition().y, ffmob->getCurrentPosition().z);
-                newPoint->setAttribute("position", buffer);
-
-                //shape attribute
-                newPoint->setAttribute("shape", "sphere 5");
-
-                //material and fill-color constant
-                newPoint->setAttribute("material", "vacuum");
-
-                shadowsXml->appendChild(newPoint);
-
-                physicalEnvironment->addFromXML(shadowsXml);
-
-                physicalEnvironment->updateCanvas();
-            }
-        }
+        // drawGrafically the point
+        drawScannedPoint(ffmob->getCurrentPosition());
 
         // add point to the scanned list
         PointScan newps;
@@ -195,8 +174,6 @@ double USVControl::calculateForceFromPoint(Coord point) {
 }
 
 void USVControl::updateMobilityPointsParameters(void) {
-    //TODO
-
     for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
         PointScan *ps = &(*it);
 
@@ -209,8 +186,6 @@ void USVControl::updateMobilityPointsParameters(void) {
         PointScan *ps = &(*it);
 
         double decade_factor = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
-
-        EV << "Updating point: " << *ps << endl;
 
         ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->pos, defaultRepulsiveWeigth, decade_factor);
     }
@@ -281,6 +256,47 @@ void USVControl::addScannedPointsFromOthers(ScannedPointsList *pkt) {
     }
 
     updateMobilityPointsParameters();
+}
+
+void USVControl::drawScannedPoint(Coord position) {
+
+    if (ev.isGUI()) {
+        physicallayer::PhysicalEnvironment *physicalEnvironment = dynamic_cast<physicallayer::PhysicalEnvironment *>(getModuleByPath("environment"));
+        if (physicalEnvironment != nullptr) {
+            char buffer[100];
+
+            cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
+
+            cXMLElement *newPoint = new cXMLElement("object", "", shadowsXml);
+
+            //set color
+            snprintf(buffer, sizeof(buffer), "%d %d %d", r_point_col, g_point_col, b_point_col);
+            newPoint->setAttribute("fill-color", buffer);
+            newPoint->setAttribute("line-color", buffer);
+
+            //position attribute
+            snprintf(buffer, sizeof(buffer), "center %lf %lf %lf", position.x, position.y, 10.0);
+            newPoint->setAttribute("position", buffer);
+
+            //shape attribute
+            newPoint->setAttribute("shape", "sphere 4");
+
+            //material and fill-color constant
+            newPoint->setAttribute("material", "vacuum");
+
+            shadowsXml->appendChild(newPoint);
+
+            physicalEnvironment->addFromXML(shadowsXml);
+            physicalEnvironment->updateCanvas();
+        }
+    }
+}
+
+void USVControl::getAlphaSigmaInPoint(Coord point, double &alpha, double &sigma) {
+    if ((signalPropMap.size() > point.x) && (signalPropMap[point.x].size() > point.y) ) {
+        alpha = signalPropMap[point.x][point.y].pathloss_alpha;
+        sigma = signalPropMap[point.x][point.y].lognormal_sigma;
+    }
 }
 
 } /* namespace inet */
