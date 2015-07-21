@@ -57,6 +57,8 @@ void FieldForceMobility::initialize(int stage)
 
         usv_control = dynamic_cast <USVControl *> (this->getParentModule()->getSubmodule("usv_brain"));
 
+        forced_stop = false;
+
         //WATCH_LIST(repulsivePointsList);
         WATCH(exploringForce);
         WATCH(force);
@@ -83,37 +85,53 @@ void FieldForceMobility::initialize(int stage)
 
 void FieldForceMobility::move()
 {
-    updateFieldForce();
-
-    if (force != Coord::ZERO) {
-
-        if (force.length() > maxacceleration) {
-            force.normalize();
-            force *= maxacceleration;
-        }
-
-        angle = acos(force.x);
-
-        Coord direction(force);
-        direction.normalize();
-        lastSpeed = direction * speed;
-        double elapsedTime = (simTime() - lastUpdate).dbl();
-        lastPosition += lastSpeed * elapsedTime;
-
-        // do something if we reach the wall
-        Coord dummy;
-        double angle_degree = 180.0*(angle/PI);
-        handleIfOutside(REFLECT, dummy, dummy, angle_degree);
-
-        // accelerate
-        speed += force.length() * elapsedTime;
-        if (speed <= 0) {
-            speed = 0;
-            //stationary = true;
-        }
+    if (forced_stop) {
+        speed = 0;
+        lastSpeed = Coord::ZERO;
     }
     else {
-        speed = 0;
+        updateFieldForce();
+
+        if (force != Coord::ZERO) {
+
+            if (force.length() > maxacceleration) {
+                force.normalize();
+                force *= maxacceleration;
+
+
+                if (usv_control) {
+                    double a, s;
+                    usv_control->getAlphaSigmaInPoint(lastPosition, a, s);
+                    if (a > 5.0) a = 5.0;
+
+                    //force *= ((6.0 - a) / 6.0);
+                    force *= ((a * (0.5 - 1.0)) / 5.0) + 1.0;
+                }
+            }
+
+            angle = acos(force.x);
+
+            Coord direction(force);
+            direction.normalize();
+            lastSpeed = direction * speed;
+            double elapsedTime = (simTime() - lastUpdate).dbl();
+            lastPosition += lastSpeed * elapsedTime;
+
+            // do something if we reach the wall
+            Coord dummy;
+            double angle_degree = 180.0*(angle/PI);
+            handleIfOutside(REFLECT, dummy, dummy, angle_degree);
+
+            // accelerate
+            speed += force.length() * elapsedTime;
+            if (speed <= 0) {
+                speed = 0;
+                //stationary = true;
+            }
+        }
+        else {
+            speed = 0;
+        }
     }
 }
 
@@ -177,8 +195,9 @@ void FieldForceMobility::updateFieldForce(void) {
             EV << "First guess for exploring force: " << exploringForce << endl;
 
             exploringForce.normalize();
+            exploringForce *= weigthRandomMovement;
 
-            if (usv_control) {
+            /*if (usv_control) {
                 double a, s;
                 usv_control->getAlphaSigmaInPoint(lastPosition, a, s);
                 if (a > 5.0) a=5.0;
@@ -186,7 +205,7 @@ void FieldForceMobility::updateFieldForce(void) {
                 exploringForce *= weigthRandomMovement * (a / 5.0);
             } else  {
                 exploringForce *= weigthRandomMovement;
-            }
+            }*/
 
             speed = 0;
 

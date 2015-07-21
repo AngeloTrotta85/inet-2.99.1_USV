@@ -69,6 +69,8 @@ protected:
 
     USVControl *usv_control;
 
+    bool forced_stop;
+
 protected:
   virtual int numInitStages() const override { return NUM_INIT_STAGES; }
 
@@ -91,6 +93,8 @@ public:
 
   void setVolatileRepulsiveForce(unsigned int addr, const Coord& pos, double weight, double decade_factor);
   void setVolatileRepulsiveForce(unsigned int addr, const Coord& pos);
+
+  void setForcedStop(bool forcedStop) { forced_stop = forcedStop; }
 
 private:
   void updateFieldForce(void);

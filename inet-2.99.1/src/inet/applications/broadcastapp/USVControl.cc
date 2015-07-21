@@ -21,6 +21,11 @@ namespace inet {
 
 Define_Module(USVControl);
 
+USVControl::~USVControl() {
+    cancelAndDelete(checkScanTimer);
+    cancelAndDelete(isScanningTimer);
+}
+
 USVControl::USVControl() {
     pktGenerated = 0;
     scanningID_idx = 0;
@@ -55,6 +60,9 @@ void USVControl::initialize(int stage) {
         checkScanTimer = new cMessage("checkScan");
         scheduleAt(simTime() + checkScanTimeStep + dblrand(), checkScanTimer);
 
+        isScanningTimer = new cMessage("isScanning");
+        scanningTime = par("scanningTime");
+
         // randomize the color
         r_point_col = rand() % 256;
         g_point_col = rand() % 256;
@@ -84,13 +92,19 @@ void USVControl::initialize(int stage) {
 /** @brief This modules should only receive self-messages. */
 void USVControl::handleMessage(cMessage *msg) {
     if (msg == checkScanTimer) {
-        checkIfScan();
+        bool imScanning = checkIfScan();
 
-        scheduleAt(simTime() + checkScanTimeStep, msg);
+        if(!imScanning) {
+            scheduleAt(simTime() + checkScanTimeStep, msg);
+        }
+    }
+    else if (msg == isScanningTimer) {
+        endScanning();
     }
 }
 
-void USVControl::checkIfScan(void) {
+bool USVControl::checkIfScan(void) {
+    bool ris = false;
     double probToScan, maxForce;
 
     maxForce = -1;
@@ -111,29 +125,45 @@ void USVControl::checkIfScan(void) {
 
     if (dblrand() < probToScan) {
 
-        EV << "Making the scan" << endl;
+        ris = true;
 
         // make the scan
-        executeScanning();
-
-        // drawGrafically the point
-        drawScannedPoint(ffmob->getCurrentPosition());
-
-        // add point to the scanned list
-        PointScan newps;
-        newps.pos= ffmob->getCurrentPosition();
-        newps.scan_timestamp = simTime();
-        newps.scanningHostAddr = this->getParentModule()->getIndex();
-        newps.scanningID = scanningID_idx++;
-        scannedPoints.push_back(newps);
-
-        // at the end update the parameters of the mobility control
-        updateMobilityPointsParameters();
+        startScanning();
     }
+
+    return ris;
 }
 
-void USVControl::executeScanning(void) {
+void USVControl::startScanning(void) {
+    // start scanning
+    EV_DEBUG << "Start scanning the channel" << endl;
+    scheduleAt(simTime() + scanningTime, isScanningTimer);
+
+
     //TODO probabilmente servità uno start_scan e un end_scan
+}
+
+void USVControl::endScanning(void) {
+
+    // end scanning
+    EV_DEBUG << "End scanning the channel" << endl;
+
+    // restart the timer to check scanning
+    scheduleAt(simTime() + checkScanTimeStep + (dblrand() / 2.0), checkScanTimer);
+
+    // drawGrafically the point
+    drawScannedPoint(ffmob->getCurrentPosition());
+
+    // add point to the scanned list
+    PointScan newps;
+    newps.pos= ffmob->getCurrentPosition();
+    newps.scan_timestamp = simTime();
+    newps.scanningHostAddr = this->getParentModule()->getIndex();
+    newps.scanningID = scanningID_idx++;
+    scannedPoints.push_back(newps);
+
+    // at the end update the parameters of the mobility control
+    updateMobilityPointsParameters();
 }
 
 double USVControl::calculateUncorrelatedDistance(Coord point) {
@@ -293,6 +323,8 @@ void USVControl::drawScannedPoint(Coord position) {
 }
 
 void USVControl::getAlphaSigmaInPoint(Coord point, double &alpha, double &sigma) {
+    alpha = 2;
+    sigma = 1;
     if ((signalPropMap.size() > point.x) && (signalPropMap[point.x].size() > point.y) ) {
         alpha = signalPropMap[point.x][point.y].pathloss_alpha;
         sigma = signalPropMap[point.x][point.y].lognormal_sigma;

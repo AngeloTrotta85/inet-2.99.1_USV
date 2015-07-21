@@ -61,7 +61,7 @@ protected:
     /** @brief This modules should only receive self-messages. */
     virtual void handleMessage(cMessage *msg) override;
 
-    void checkIfScan(void);
+    bool checkIfScan(void);
 
     double calculateUncorrelatedDistance(Coord point);
     double calculateDecayFromWeigthAndChannelLoss(double desiredRatio, double fieldWeigth, Coord point);
@@ -69,12 +69,14 @@ protected:
 
     void updateMobilityPointsParameters(void);
 
-    void executeScanning(void);
+    void startScanning(void);
+    void endScanning(void);
 
     void drawScannedPoint(Coord position);
 
 public:
     USVControl();
+    ~USVControl();
 
     ScannedPointsList *getPacketToSend(void);
 
@@ -100,6 +102,9 @@ private:
 
     cMessage *checkScanTimer;
     simtime_t checkScanTimeStep;
+
+    cMessage *isScanningTimer;
+    simtime_t scanningTime;
 
     std::vector< std::vector<PointMapSignalCharacteristics> > signalPropMap;
     Coord signalMapOffset;

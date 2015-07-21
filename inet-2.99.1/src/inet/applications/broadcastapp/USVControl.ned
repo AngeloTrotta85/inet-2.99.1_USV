@@ -24,6 +24,7 @@ simple USVControl
     double desiredWeigthRatio = default(0.05);		// define the desired ratio of the weigth to calculate the distance from 2 points
     bool pathLossMapAvailable = default(true);		// define if the control module has the pathloss map available
     double checkScanTimeStep @unit(s) = default (3s);	// time to check the scan method
+    double scanningTime @unit(s) = default (1s);		// time needed to permirm a scanning
     
     @display("i=misc/joystick");
 }
