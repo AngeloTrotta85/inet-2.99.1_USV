@@ -20,17 +20,23 @@ cplusplus {{
 #include "inet/common/INETDefs.h"
 
 
+}}
+
+namespace inet;
+
+cplusplus {{    
+
 struct ScannedPoint {
     	unsigned int scanID;
-        inet::Coord position;
+        Coord position;
         simtime_t timestamp;
+       	double watt_read;
+        bool decisionMade;
         //double weight;
         //double decade_factor;
 };
 
-}}
-
-namespace inet;
+}}    
 
 struct ScannedPoint;
 class Coord;

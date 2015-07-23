@@ -32,23 +32,26 @@ namespace inet {
 
 class FieldForceMobility;
 
-class INET_API USVControl : public cSimpleModule {
+class INET_API USVControl : public cSimpleModule, public cListener {
 
 public:
+    typedef struct ScanResult_s {
+        W powerReceived;
+        bool actualResult;
+    } ScanResult;
+
     typedef struct PointScan_s {
         int scanningHostAddr;
         unsigned int scanningID;
         Coord pos;
         simtime_t scan_timestamp;
+        ScanResult scanLog;
     } PointScan;
 
     typedef struct PointMapSignalCharacteristics_s {
         double pathloss_alpha;
         double lognormal_sigma;
     } PointMapSignalCharacteristics;
-
-
-
 
 protected:
 
@@ -73,6 +76,8 @@ protected:
     void endScanning(void);
 
     void drawScannedPoint(Coord position);
+
+    virtual void receiveSignal(cComponent *source, simsignal_t signalID, double d) override;
 
 public:
     USVControl();

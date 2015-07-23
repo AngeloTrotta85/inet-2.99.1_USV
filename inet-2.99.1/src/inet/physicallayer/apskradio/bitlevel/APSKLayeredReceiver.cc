@@ -197,7 +197,7 @@ const IListeningDecision *APSKLayeredReceiver::computeListeningDecision(const IL
     W maxPower = flatNoise->computeMaxPower(listening->getStartTime(), listening->getEndTime());
     bool isListeningPossible = maxPower >= energyDetection;
     delete noise;
-    EV_DEBUG << "Computing listening possible: maximum power = " << maxPower << ", energy detection = " << energyDetection << " -> listening is " << (isListeningPossible ? "possible" : "impossible") << endl;
+    EV_DEBUG << this->getClassName() << " Computing listening possible: maximum power = " << maxPower << ", energy detection = " << energyDetection << " -> listening is " << (isListeningPossible ? "possible" : "impossible") << endl;
     return new ListeningDecision(listening, isListeningPossible);
 }
 

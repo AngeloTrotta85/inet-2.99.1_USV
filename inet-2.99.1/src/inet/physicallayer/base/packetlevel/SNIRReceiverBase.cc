@@ -18,6 +18,7 @@
 #include "inet/physicallayer/contract/packetlevel/IRadioMedium.h"
 #include "inet/physicallayer/base/packetlevel/SNIRReceiverBase.h"
 #include "inet/physicallayer/common/packetlevel/ReceptionDecision.h"
+#include "inet/physicallayer/contract/packetlevel/IRadioSignal.h"
 
 namespace inet {
 
@@ -47,6 +48,10 @@ const ReceptionIndication *SNIRReceiverBase::computeReceptionIndication(const IS
 {
     ReceptionIndication *indication = new ReceptionIndication();
     indication->setMinSNIR(snir->getMin());
+
+    const IScalarSignal *scalarSignalAnalogModel = check_and_cast<const IScalarSignal *>(snir->getReception()->getAnalogModel());
+    indication->setMaxRSSI(scalarSignalAnalogModel->getPower());
+
     return indication;
 }
 

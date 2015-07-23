@@ -73,5 +73,6 @@ class ReceptionIndication
     double bitErrorRate = NaN;    // bit error rate (probability) in the range [0, 1] or NaN if unknown.
     double symbolErrorRate = NaN; // symbol error rate (probability) in the range [0, 1] or NaN if unknown.
     W minRSSI = W(NaN);           // minimum receive signal strength indication in the range (0, +infinity) or NaN if unknown.
+    W maxRSSI = W(NaN);           // maximum receive signal strength indication in the range (0, +infinity) or NaN if unknown.
     double minSNIR = NaN;         // minimum signal to noise plus interference ratio in the range (0, +infinity) or NaN if unknown.
 }

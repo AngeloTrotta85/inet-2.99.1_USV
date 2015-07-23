@@ -76,14 +76,6 @@ std::ostream& LogNormalShadowingGrid::printToStream(std::ostream& stream, int le
 
 double LogNormalShadowingGrid::computePathLoss_parametric(mps propagationSpeed, Hz frequency, m distance, double alpha_par, double sigma_par) const
 {
-    EV_DEBUG << "Using for log-normal path loss"
-            << ": alpha = " << alpha_par
-            << ", sigma = " << sigma_par
-            << ", propagationSpeed = " << propagationSpeed
-            << ", frequency = " << frequency
-            << ", distance = " << distance
-            << endl;
-
     //throw cRuntimeError("LogNormalShadowingGrid::computePathLoss OK");
     //exit(0);
 
@@ -93,7 +85,18 @@ double LogNormalShadowingGrid::computePathLoss_parametric(mps propagationSpeed, 
     double PL_d0_db = 10.0 * log10(1 / freeSpacePathLoss);
     // path loss at distance d + normal distribution with sigma standard deviation
     double PL_db = PL_d0_db + 10 * alpha_par * log10(unit(distance / d0).get()) + normal(0.0, sigma_par);
-    return math::dB2fraction(-PL_db);
+    double PL_ris = math::dB2fraction(-PL_db);
+
+    EV_DEBUG << "Using for log-normal path loss"
+                << ": alpha = " << alpha_par
+                << ", sigma = " << sigma_par
+                << ", propagationSpeed = " << propagationSpeed
+                << ", frequency = " << frequency
+                << ", distance = " << distance
+                << ". Total path loss: " << PL_db << "dB"
+                << endl;
+
+    return PL_ris;
 }
 
 double LogNormalShadowingGrid::computePathLoss(mps propagationSpeed, Hz frequency, m distance) const

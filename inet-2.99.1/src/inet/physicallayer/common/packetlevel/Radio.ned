@@ -72,6 +72,8 @@ module Radio like IRadio
         @signal[listeningChanged];
         @signal[receptionStateChanged](type=long);
         @signal[transmissionStateChanged](type=long);
+        @signal[maxRSSI];
+        @signal[minRSSI];
         @signal[minSNIR];
         @signal[packetErrorRate];
         @signal[bitErrorRate];
@@ -81,6 +83,8 @@ module Radio like IRadio
         @statistic[receptionState](title="Radio reception state"; source=receptionStateChanged; record=count,vector; interpolationmode=sample-hold);
         @statistic[transmissionState](title="Radio transmission state"; source=transmissionStateChanged; record=count,vector; interpolationmode=sample-hold);
 
+        @statistic[maxRSSI](title="Max RSSI"; source=maxRSSI; record=histogram);
+        @statistic[minRSSI](title="Min RSSI"; source=minRSSI; record=histogram);
         @statistic[minSNIR](title="Min SNIR"; source=minSNIR; record=histogram);
         @statistic[packetErrorRate](title="Packet error rate"; source=packetErrorRate; record=histogram);
         @statistic[bitErrorRate](title="Bit error rate"; source=bitErrorRate; record=histogram);

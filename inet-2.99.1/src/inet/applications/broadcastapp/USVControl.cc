@@ -17,6 +17,8 @@
 
 #include "inet/environment/common/PhysicalEnvironment.h"
 
+#include "inet/physicallayer/common/packetlevel/Radio.h"
+
 namespace inet {
 
 Define_Module(USVControl);
@@ -67,6 +69,11 @@ void USVControl::initialize(int stage) {
         r_point_col = rand() % 256;
         g_point_col = rand() % 256;
         b_point_col = rand() % 256;
+
+        // subscribe to the Radio signal
+        physicallayer::Radio *radioM = check_and_cast<physicallayer::Radio *>(this->getParentModule()->getSubmodule("wlan",0)->getSubmodule("radio"));
+        radioM->subscribe(physicallayer::Radio::maxRSSISignal, this);
+        //radioM->subscribe(physicallayer::Radio::minSNIRSignal, this);
 
         WATCH_LIST(scannedPoints_fromOthers);
         WATCH_LIST(scannedPoints);
@@ -159,6 +166,10 @@ void USVControl::endScanning(void) {
     newps.pos= ffmob->getCurrentPosition();
     newps.scan_timestamp = simTime();
     newps.scanningHostAddr = this->getParentModule()->getIndex();
+
+    newps.scanLog.actualResult = false;
+    newps.scanLog.powerReceived = W(0);
+
     newps.scanningID = scanningID_idx++;
     scannedPoints.push_back(newps);
 
@@ -232,12 +243,14 @@ ScannedPointsList *USVControl::getPacketToSend(void) {
     pkt->setScanPointsArraySize(scannedPoints.size());
     int i = 0;
     for (std::list<PointScan>::iterator it = scannedPoints.begin(); it != scannedPoints.end(); it++) {
-        USVControl::PointScan *ps = &(*it);
+        PointScan *ps = &(*it);
         struct ScannedPoint newP;
 
         newP.position = ps->pos;
         newP.timestamp = ps->scan_timestamp;
         newP.scanID = ps->scanningID;
+        newP.decisionMade = ps->scanLog.actualResult;
+        newP.watt_read = ps->scanLog.powerReceived.get();
 
         pkt->setScanPoints(i++, newP);
     }
@@ -328,6 +341,19 @@ void USVControl::getAlphaSigmaInPoint(Coord point, double &alpha, double &sigma)
     if ((signalPropMap.size() > point.x) && (signalPropMap[point.x].size() > point.y) ) {
         alpha = signalPropMap[point.x][point.y].pathloss_alpha;
         sigma = signalPropMap[point.x][point.y].lognormal_sigma;
+    }
+}
+
+void USVControl::receiveSignal(cComponent *source, simsignal_t signalID, double d) {
+    if (signalID == physicallayer::Radio::maxRSSISignal) {
+        EV << "Signal RSSI catched! " << signalID << endl;
+        EV << "Source getFullPath: " << source->getFullPath() << endl;
+        EV << "Source getClassName: " << source->getClassName() << endl;
+        EV << "Source getFullName: " << source->getFullName() << endl;
+        EV << "Source getName: " << source->getName() << endl;
+        EV << "Value: " << d << endl;
+        W rssi = W(d);
+        EV << "Value Watt: " << rssi << endl;
     }
 }
 
