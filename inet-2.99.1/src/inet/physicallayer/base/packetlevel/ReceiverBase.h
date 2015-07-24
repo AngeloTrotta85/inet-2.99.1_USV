@@ -22,6 +22,8 @@
 #include "inet/physicallayer/contract/packetlevel/ITransmission.h"
 #include "inet/physicallayer/contract/packetlevel/IReception.h"
 
+#include "inet/physicallayer/common/packetlevel/Radio.h"
+
 namespace inet {
 
 namespace physicallayer {
@@ -34,6 +36,9 @@ class INET_API ReceiverBase : public cModule, public virtual IReceiver
     virtual bool computeIsReceptionPossible(const IListening *listening, const IReception *reception) const override = 0;
 
     virtual bool computeIsReceptionAttempted(const IListening *listening, const IReception *reception, const IInterference *interference) const override;
+
+    virtual W computeMinReceivedPower(const IReception *reception) const override;
+    virtual W computeMaxReceivedPower(const IReception *reception) const override;
 
   public:
     ReceiverBase() {}

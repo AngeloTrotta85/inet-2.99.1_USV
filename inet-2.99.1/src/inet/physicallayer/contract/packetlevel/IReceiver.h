@@ -91,6 +91,16 @@ class INET_API IReceiver : public IPrintableObject
     virtual bool computeIsReceptionPossible(const IListening *listening, const IReception *reception) const = 0;
 
     /**
+     * Returns the minimum received power
+     */
+    virtual W computeMinReceivedPower(const IReception *reception) const = 0;
+
+    /**
+     * Returns the maximum received power
+     */
+    virtual W computeMaxReceivedPower(const IReception *reception) const = 0;
+
+    /**
      * Returns whether the reception is actually attempted or ignored by the
      * receiver. This function must be purely functional and support optimistic
      * parallel computation.

@@ -39,6 +39,7 @@ class INET_API DimensionalTransmission : public FlatTransmissionBase, public IDi
 
     virtual const ConstMapping *getPower() const override { return power; }
     virtual W computeMinPower(const simtime_t startTime, const simtime_t endTime) const override { ASSERT(false); return W(NaN); }
+    virtual W computeMaxPower(const simtime_t startTime, const simtime_t endTime) const override { ASSERT(false); return W(NaN); }
 };
 
 } // namespace physicallayer

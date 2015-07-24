@@ -36,6 +36,7 @@ class INET_API ScalarTransmission : public FlatTransmissionBase, public virtual 
 
     virtual W getPower() const override { return power; }
     virtual W computeMinPower(const simtime_t startTime, const simtime_t endTime) const override { return power; }
+    virtual W computeMaxPower(const simtime_t startTime, const simtime_t endTime) const override { return power; }
 };
 
 } // namespace physicallayer

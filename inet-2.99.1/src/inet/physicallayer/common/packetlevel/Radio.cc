@@ -322,12 +322,20 @@ void Radio::endReception(cMessage *message)
 {
     RadioFrame *radioFrame = static_cast<RadioFrame *>(message->getControlInfo());
     EV_INFO << "Reception of " << (IRadioFrame *)radioFrame << " as " << radioFrame->getTransmission() << " is completed.\n";
+
+    const ITransmission *transmission = radioFrame->getTransmission();
+    const IReception *reception = medium->getReception(this, transmission);
+    W minPow = receiver->computeMinReceivedPower(reception);
+    W maxPow = receiver->computeMaxReceivedPower(reception);
+    if ((minPow != W(NaN)) && (minPow > W(0))) emit(minRSSISignal, minPow.get());
+    if ((maxPow != W(NaN)) && (maxPow > W(0))) emit(maxRSSISignal, maxPow.get());
+
     if ((radioMode == RADIO_MODE_RECEIVER || radioMode == RADIO_MODE_TRANSCEIVER) && message == endReceptionTimer) {
         cPacket *macFrame = medium->receivePacket(this, radioFrame);
         EV_INFO << "Sending up " << macFrame << ".\n";
         const ReceptionIndication *indication = check_and_cast<const ReceptionIndication *>(macFrame->getControlInfo());
         emit(minSNIRSignal, indication->getMinSNIR());
-        emit(maxRSSISignal, indication->getMaxRSSI().get());
+        //emit(maxRSSISignal, indication->getMaxRSSI().get());
         if (!isNaN(indication->getPacketErrorRate()))
             emit(packetErrorRateSignal, indication->getPacketErrorRate());
         if (!isNaN(indication->getBitErrorRate()))

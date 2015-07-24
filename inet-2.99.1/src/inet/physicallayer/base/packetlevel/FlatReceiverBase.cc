@@ -62,7 +62,16 @@ bool FlatReceiverBase::computeIsReceptionPossible(const IListening *listening, c
         return false;
     else {
         const FlatReceptionBase *flatReception = check_and_cast<const FlatReceptionBase *>(reception);
-        W minReceptionPower = flatReception->computeMinPower(reception->getStartTime(), reception->getEndTime());
+        W minReceptionPower = flatReception->computeMinPower(reception->getStartTime(), reception->getEndTime()); 
+        //W maxReceptionPower = flatReception->computeMaxPower(reception->getStartTime(), reception->getEndTime());
+
+        /*Radio *r = dynamic_cast<Radio *>(reception->getReceiver());
+        if (r) {
+            EV_DEBUG << this->getFullName() << " Emitting max-min signals!!!" << endl;
+            r->emit(minReceivedPower, minReceptionPower.get());
+            r->emit(maxReceivedPower, maxReceptionPower.get());
+        }*/
+        
         bool isReceptionPossible = minReceptionPower >= sensitivity;
         EV_DEBUG << "Computing reception possible: minimum reception power = " << minReceptionPower << ", sensitivity = " << sensitivity << " -> reception is " << (isReceptionPossible ? "possible" : "impossible") << endl;
         return isReceptionPossible;

@@ -58,6 +58,7 @@ class INET_API INarrowbandSignal
     virtual Hz getBandwidth() const = 0;
 
     virtual W computeMinPower(simtime_t startTime, simtime_t endTime) const = 0;
+    virtual W computeMaxPower(simtime_t startTime, simtime_t endTime) const = 0;
 };
 
 class INET_API IScalarSignal

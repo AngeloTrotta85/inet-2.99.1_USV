@@ -37,6 +37,7 @@ class INET_API DimensionalReception : public FlatReceptionBase
 
     virtual const ConstMapping *getPower() const { return power; }
     virtual W computeMinPower(simtime_t startTime, simtime_t endTime) const override;
+    virtual W computeMaxPower(simtime_t startTime, simtime_t endTime) const override;
 };
 
 } // namespace physicallayer

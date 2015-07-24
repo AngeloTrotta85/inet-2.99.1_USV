@@ -36,6 +36,7 @@ class INET_API ScalarReception : public FlatReceptionBase, public virtual IScala
     virtual std::ostream& printToStream(std::ostream& stream, int level) const override;
     virtual W getPower() const override { return power; }
     virtual W computeMinPower(simtime_t startTime, simtime_t endTime) const override { return power; }
+    virtual W computeMaxPower(simtime_t startTime, simtime_t endTime) const override { return power; }
 };
 
 } // namespace physicallayer

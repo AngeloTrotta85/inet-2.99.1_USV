@@ -46,6 +46,25 @@ W DimensionalReception::computeMinPower(simtime_t startTime, simtime_t endTime) 
     return minPower;
 }
 
+W DimensionalReception::computeMaxPower(simtime_t startTime, simtime_t endTime) const
+{
+    const DimensionSet& dimensions = power->getDimensionSet();
+    Argument startArgument(dimensions);
+    Argument endArgument(dimensions);
+    if (dimensions.hasDimension(Dimension::time)) {
+        startArgument.setTime(startTime);
+        // NOTE: to exclude the moment where the reception power starts to be 0 again
+        endArgument.setTime(MappingUtils::pre(endTime));
+    }
+    if (dimensions.hasDimension(Dimension::frequency)) {
+        startArgument.setArgValue(Dimension::frequency, (carrierFrequency - bandwidth / 2).get());
+        endArgument.setArgValue(Dimension::frequency, nexttoward((carrierFrequency + bandwidth / 2).get(), 0));
+    }
+    W maxPower = W(MappingUtils::findMax(*power, startArgument, endArgument));
+    EV_DEBUG << "Computing maximum reception power: start = " << startArgument << ", end = " << endArgument << " -> maximum reception power = " << maxPower << endl;
+    return maxPower;
+}
+
 } // namespace physicallayer
 
 } // namespace inet

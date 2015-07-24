@@ -216,7 +216,16 @@ bool APSKLayeredReceiver::computeIsReceptionPossible(const IListening *listening
     else {
         const INarrowbandSignal *narrowbandSignalAnalogModel = check_and_cast<const INarrowbandSignal *>(scalarReception->getAnalogModel());
         W minReceptionPower = narrowbandSignalAnalogModel->computeMinPower(reception->getStartTime(), reception->getEndTime());
-        bool isReceptionPossible = minReceptionPower >= sensitivity;
+        //W maxReceptionPower = narrowbandSignalAnalogModel->computeMaxPower(reception->getStartTime(), reception->getEndTime());
+        bool isReceptionPossible = minReceptionPower >= sensitivity;        
+
+        /*Radio *r = dynamic_cast<Radio *>(reception->getReceiver());
+        if (r) {
+            EV_DEBUG << this->getFullName() << " Emitting max-min signals!!!" << endl;
+            r->emit(minReceivedPower, minReceptionPower.get());
+            r->emit(maxReceivedPower, maxReceptionPower.get());
+        }*/
+        
         EV_DEBUG << "Computing reception possible: minimum reception power = " << minReceptionPower << ", sensitivity = " << sensitivity << " -> reception is " << (isReceptionPossible ? "possible" : "impossible") << endl;
         return isReceptionPossible;
     }

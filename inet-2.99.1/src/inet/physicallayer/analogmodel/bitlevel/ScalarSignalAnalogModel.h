@@ -36,6 +36,7 @@ class INET_API ScalarSignalAnalogModel : public NarrowbandSignalAnalogModel, pub
 
     virtual W getPower() const override { return power; }
     virtual W computeMinPower(simtime_t startTime, simtime_t endTime) const override { return power; }
+    virtual W computeMaxPower(simtime_t startTime, simtime_t endTime) const override { return power; }
 };
 
 class INET_API ScalarTransmissionSignalAnalogModel : public ScalarSignalAnalogModel, public virtual ITransmissionAnalogModel

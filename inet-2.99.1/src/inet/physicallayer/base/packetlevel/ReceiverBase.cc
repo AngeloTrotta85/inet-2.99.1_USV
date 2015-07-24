@@ -18,6 +18,7 @@
 #include "inet/physicallayer/base/packetlevel/ReceiverBase.h"
 #include "inet/physicallayer/contract/packetlevel/IRadio.h"
 #include "inet/physicallayer/contract/packetlevel/IRadioMedium.h"
+#include "inet/physicallayer/contract/packetlevel/IRadioSignal.h"
 
 namespace inet {
 
@@ -56,6 +57,28 @@ bool ReceiverBase::computeIsReceptionAttempted(const IListening *listening, cons
         }
         return true;
     }
+}
+
+W ReceiverBase::computeMinReceivedPower(const IReception *reception) const {
+    W minReceptionPower = W(NaN);
+    const INarrowbandSignal *narrowbandSignalAnalogModel = dynamic_cast<const INarrowbandSignal *>(reception->getAnalogModel());
+    if (narrowbandSignalAnalogModel)
+        minReceptionPower = narrowbandSignalAnalogModel->computeMinPower(reception->getStartTime(), reception->getEndTime());
+
+    //EV << "ReceiverBase::computeMinReceivedPower received MIN: " << minReceptionPower << " - sensitivity: " << this->getMinReceptionPower() << endl;
+
+    return minReceptionPower;
+}
+
+W ReceiverBase::computeMaxReceivedPower(const IReception *reception) const {
+    W maxReceptionPower = W(NaN);
+
+    const INarrowbandSignal *narrowbandSignalAnalogModel = dynamic_cast<const INarrowbandSignal *>(reception->getAnalogModel());
+    if (narrowbandSignalAnalogModel)
+        maxReceptionPower = narrowbandSignalAnalogModel->computeMaxPower(reception->getStartTime(), reception->getEndTime());
+
+    //EV << "ReceiverBase::computeMaxReceivedPower received MAX: " << maxReceptionPower << " - sensitivity: " << this->getMinReceptionPower() << endl;
+    return maxReceptionPower;
 }
 
 } // namespace physicallayer
