@@ -37,8 +37,8 @@ class INET_API ReceiverBase : public cModule, public virtual IReceiver
 
     virtual bool computeIsReceptionAttempted(const IListening *listening, const IReception *reception, const IInterference *interference) const override;
 
-    virtual W computeMinReceivedPower(const IReception *reception) const override;
-    virtual W computeMaxReceivedPower(const IReception *reception) const override;
+    virtual W computeMinReceivedPower(const IListening *listening, const IReception *reception, const ITransmission *transmission) const override;
+    virtual W computeMaxReceivedPower(const IListening *listening, const IReception *reception, const ITransmission *transmission) const override;
 
   public:
     ReceiverBase() {}

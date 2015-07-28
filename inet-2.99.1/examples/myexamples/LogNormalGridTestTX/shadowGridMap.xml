@@ -6,11 +6,17 @@
 	</shadowCell>
 	<shadowCell cardinality="SW" exponent="2" variance="3.07">
 		<shadowCell cardinality="NE" exponent="3" variance="1.87" />
-		<shadowCell cardinality="SE" exponent="5.5" variance="2.47" />
+		<shadowCell cardinality="SE" exponent="5.5" variance="2.47">
+			<shadowCell cardinality="NW" exponent="5.8" variance="6.87" />
+			<shadowCell cardinality="NE" exponent="6" variance="5.87" />
+		</shadowCell>
 	</shadowCell>
 	<shadowCell cardinality="SE" exponent="2" variance="2.47">
 		<shadowCell cardinality="NW" exponent="3" variance="2.87">
-			<shadowCell cardinality="SW" exponent="4" variance="3.07" />
+			<shadowCell cardinality="SW" exponent="4" variance="5.07">
+				<shadowCell cardinality="NW" exponent="4.5" variance="6.87" />
+				<shadowCell cardinality="NE" exponent="4.9" variance="5.87" />
+			</shadowCell>
 			<shadowCell cardinality="SE" exponent="2" variance="2.47" />
 		</shadowCell>
 		<shadowCell cardinality="SW" exponent="2" variance="3.07">

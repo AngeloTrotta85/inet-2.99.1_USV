@@ -25,6 +25,7 @@ simple USVControl
     bool pathLossMapAvailable = default(true);		// define if the control module has the pathloss map available
     double checkScanTimeStep @unit(s) = default (3s);	// time to check the scan method
     double scanningTime @unit(s) = default (1s);		// time needed to permirm a scanning
+    double scanPowerThreshold @unit(dBm) = default (-90dBm);	// thresholt to decide if the channel is free or not
     
     @display("i=misc/joystick");
 }

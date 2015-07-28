@@ -31,6 +31,8 @@ USVControl::~USVControl() {
 USVControl::USVControl() {
     pktGenerated = 0;
     scanningID_idx = 0;
+
+    isScanning = false;
 }
 
 /** @brief Initializes mobility model parameters. */
@@ -40,6 +42,9 @@ void USVControl::initialize(int stage) {
         pathLossMapAvailable = par("pathLossMapAvailable").boolValue();
         defaultRepulsiveWeigth = par("defaultRepulsiveWeigth");
         desiredWeigthRatio = par("desiredWeigthRatio");
+
+        //scanPowerThreshold = W(par("scanPowerThreshold").doubleValue());
+        scanPowerThreshold = mW(math::dBm2mW(par("scanPowerThreshold")));
 
         ffmob = check_and_cast<FieldForceMobility *>(this->getParentModule()->getSubmodule("mobility"));
         pathLossModel = check_and_cast<physicallayer::LogNormalShadowingGrid *>(this->getParentModule()->getParentModule()->getSubmodule("radioMedium")->getSubmodule("pathLoss"));
@@ -130,6 +135,8 @@ bool USVControl::checkIfScan(void) {
 
     probToScan = 1.0 - (maxForce / defaultRepulsiveWeigth);  // all the force cannot be greater then "defaultRepulsiveWeigth"
 
+    EV << "Checking if needed scan here. Probability to scan is: " << probToScan << endl;
+
     if (dblrand() < probToScan) {
 
         ris = true;
@@ -147,7 +154,13 @@ void USVControl::startScanning(void) {
     scheduleAt(simTime() + scanningTime, isScanningTimer);
 
 
-    //TODO probabilmente servità uno start_scan e un end_scan
+    // stopping the drone during scanning
+    ffmob->setForcedStop(true);
+
+    scanningList.clear();
+
+    isScanning = true;
+
 }
 
 void USVControl::endScanning(void) {
@@ -155,11 +168,35 @@ void USVControl::endScanning(void) {
     // end scanning
     EV_DEBUG << "End scanning the channel" << endl;
 
+    ffmob->setForcedStop(false);
+
+    isScanning = false;
+
     // restart the timer to check scanning
     scheduleAt(simTime() + checkScanTimeStep + (dblrand() / 2.0), checkScanTimer);
 
+    //calculate the result
+    W resScan = W(0);
+    bool scanResult = false;
+    for (std::list<W>::iterator it = scanningList.begin();  it != scanningList.end();  it++) {
+
+        if (((*it) != W(NaN)) && ((*it) > resScan)) {
+            resScan = *it;
+        }
+
+        EV_DEBUG << "MAX: " << resScan << " - Scanning list: " << *it << endl;
+    }
+    if (resScan > scanPowerThreshold) {
+        scanResult = true;
+    }
+
+    EV_DEBUG << "End scanning procedure. Max power: " << resScan << " [thr: " << scanPowerThreshold << "] resulting in channel ";
+    scanResult ? EV << "busy"<< endl : EV << "free" << endl;
+
     // drawGrafically the point
-    drawScannedPoint(ffmob->getCurrentPosition());
+    if (scanResult) {
+        drawScannedPoint(ffmob->getCurrentPosition());
+    }
 
     // add point to the scanned list
     PointScan newps;
@@ -167,8 +204,8 @@ void USVControl::endScanning(void) {
     newps.scan_timestamp = simTime();
     newps.scanningHostAddr = this->getParentModule()->getIndex();
 
-    newps.scanLog.actualResult = false;
-    newps.scanLog.powerReceived = W(0);
+    newps.scanLog.actualResult = scanResult;
+    newps.scanLog.powerReceived = resScan;
 
     newps.scanningID = scanningID_idx++;
     scannedPoints.push_back(newps);
@@ -346,14 +383,12 @@ void USVControl::getAlphaSigmaInPoint(Coord point, double &alpha, double &sigma)
 
 void USVControl::receiveSignal(cComponent *source, simsignal_t signalID, double d) {
     if (signalID == physicallayer::Radio::maxRSSISignal) {
-        EV << "Signal RSSI catched! " << signalID << endl;
-        EV << "Source getFullPath: " << source->getFullPath() << endl;
-        EV << "Source getClassName: " << source->getClassName() << endl;
-        EV << "Source getFullName: " << source->getFullName() << endl;
-        EV << "Source getName: " << source->getName() << endl;
-        EV << "Value: " << d << endl;
         W rssi = W(d);
-        EV << "Value Watt: " << rssi << endl;
+        EV_DEBUG << this->getFullPath() << " - Signal RSSI caught from " << source->getFullPath() << ". Value: " << rssi << endl;
+
+        if (isScanning) {
+            scanningList.push_back(rssi);
+        }
     }
 }
 

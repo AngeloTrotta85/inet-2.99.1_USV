@@ -61,6 +61,27 @@ void LogNormalShadowingGrid::initialize(int stage)
                 physicalEnvironment->addFromXML(shadowsXml);
             }
         }
+
+        fastSignalMap.resize((int)(scenarioCoordMax.x));
+        for (unsigned int x = 0; x < fastSignalMap.size(); x++) {
+            //signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y));
+            fastSignalMap[x].resize((int)(scenarioCoordMax.y));
+
+            for (unsigned int y = 0; y < fastSignalMap[x].size(); y++) {
+                fastSignalMap[x][y].exponent = 2;
+                fastSignalMap[x][y].stddev = 1;
+            }
+        }
+        // copy the map from the pathloss simulation module
+        for (unsigned int x = 0; x < fastSignalMap.size(); x++) {
+            for (unsigned int y = 0; y < fastSignalMap[x].size(); y++) {
+
+                getAlphaSigmaFromAbsCoord(Coord(x, y),
+                        fastSignalMap[x][y].exponent,
+                        fastSignalMap[x][y].stddev);
+
+            }
+        }
     }
 }
 
@@ -119,7 +140,9 @@ double LogNormalShadowingGrid::computePathLossExt(mps propagationSpeed, Hz frequ
 }
 
 void LogNormalShadowingGrid::getAlphaSigmaFromAbsCoord(Coord point, double &alpha_p, double &sigma_p) const {
-    getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, point, alpha_p, sigma_p);
+    //getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, point, alpha_p, sigma_p);
+    alpha_p = fastSignalMap[point.x][point.y].exponent;
+    sigma_p = fastSignalMap[point.x][point.y].stddev;
 }
 
 void LogNormalShadowingGrid::getAlphaSigmaFromCoord(const Cell_t *grid, Coord min, Coord max, Coord point, double &alpha_p, double &sigma_p) const

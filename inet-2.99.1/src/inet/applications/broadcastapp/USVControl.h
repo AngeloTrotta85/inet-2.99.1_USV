@@ -119,6 +119,10 @@ private:
     int g_point_col;
     int b_point_col;
 
+    bool isScanning;
+    std::list<W> scanningList;
+    W scanPowerThreshold;
+
 };
 
 inline std::ostream& operator<<(std::ostream& os, const USVControl::PointScan& ps)

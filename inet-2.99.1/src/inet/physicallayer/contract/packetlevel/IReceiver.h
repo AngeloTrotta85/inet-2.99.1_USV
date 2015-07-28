@@ -93,12 +93,12 @@ class INET_API IReceiver : public IPrintableObject
     /**
      * Returns the minimum received power
      */
-    virtual W computeMinReceivedPower(const IReception *reception) const = 0;
+    virtual W computeMinReceivedPower(const IListening *listening, const IReception *reception, const ITransmission *transmission) const = 0;
 
     /**
      * Returns the maximum received power
      */
-    virtual W computeMaxReceivedPower(const IReception *reception) const = 0;
+    virtual W computeMaxReceivedPower(const IListening *listening, const IReception *reception, const ITransmission *transmission) const = 0;
 
     /**
      * Returns whether the reception is actually attempted or ignored by the

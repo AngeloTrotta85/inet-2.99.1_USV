@@ -19,6 +19,7 @@
 #include "inet/physicallayer/contract/packetlevel/IRadio.h"
 #include "inet/physicallayer/contract/packetlevel/IRadioMedium.h"
 #include "inet/physicallayer/contract/packetlevel/IRadioSignal.h"
+#include "inet/physicallayer/common/packetlevel/BandListening.h"
 
 namespace inet {
 
@@ -59,23 +60,52 @@ bool ReceiverBase::computeIsReceptionAttempted(const IListening *listening, cons
     }
 }
 
-W ReceiverBase::computeMinReceivedPower(const IReception *reception) const {
+W ReceiverBase::computeMinReceivedPower(const IListening *listening, const IReception *reception, const ITransmission *transmission) const {
     W minReceptionPower = W(NaN);
     const INarrowbandSignal *narrowbandSignalAnalogModel = dynamic_cast<const INarrowbandSignal *>(reception->getAnalogModel());
-    if (narrowbandSignalAnalogModel)
-        minReceptionPower = narrowbandSignalAnalogModel->computeMinPower(reception->getStartTime(), reception->getEndTime());
+    const BandListening *bandListening = dynamic_cast<const BandListening *>(listening);
+
+    if (narrowbandSignalAnalogModel && bandListening) {
+        if ((bandListening->getCarrierFrequency() == narrowbandSignalAnalogModel->getCarrierFrequency()) &&
+                (bandListening->getBandwidth() == narrowbandSignalAnalogModel->getBandwidth())) {
+            minReceptionPower = narrowbandSignalAnalogModel->computeMinPower(reception->getStartTime(), reception->getEndTime());
+        }
+    }
+
+    //if ((narrowbandSignalAnalogModel) && (computeIsReceptionPossible(transmission)))
+       // minReceptionPower = narrowbandSignalAnalogModel->computeMinPower(reception->getStartTime(), reception->getEndTime());
 
     //EV << "ReceiverBase::computeMinReceivedPower received MIN: " << minReceptionPower << " - sensitivity: " << this->getMinReceptionPower() << endl;
 
     return minReceptionPower;
 }
 
-W ReceiverBase::computeMaxReceivedPower(const IReception *reception) const {
+W ReceiverBase::computeMaxReceivedPower(const IListening *listening, const IReception *reception, const ITransmission *transmission) const {
     W maxReceptionPower = W(NaN);
 
     const INarrowbandSignal *narrowbandSignalAnalogModel = dynamic_cast<const INarrowbandSignal *>(reception->getAnalogModel());
-    if (narrowbandSignalAnalogModel)
-        maxReceptionPower = narrowbandSignalAnalogModel->computeMaxPower(reception->getStartTime(), reception->getEndTime());
+    const BandListening *bandListening = dynamic_cast<const BandListening *>(listening);
+
+    //EV << "ReceiverBase::computeMaxReceivedPower - analogModel:" << reception->getAnalogModel()->getDetailStringRepresentation()
+    //            << " bandListening:" << listening->getDetailStringRepresentation() << endl;
+    //EV << "ReceiverBase::computeMaxReceivedPower - analogModel:" << narrowbandSignalAnalogModel
+    //        << " bandListening:" << bandListening << endl;
+    //EV << "ReceiverBase::computeMaxReceivedPower1 - getCarrierFrequency:" << bandListening->getCarrierFrequency()
+    //            << " getBandwidth:" << bandListening->getBandwidth() << endl;
+
+    if (narrowbandSignalAnalogModel && bandListening) {
+        if ((bandListening->getCarrierFrequency() == narrowbandSignalAnalogModel->getCarrierFrequency()) &&
+                (bandListening->getBandwidth() == narrowbandSignalAnalogModel->getBandwidth())) {
+
+            //EV << "ReceiverBase::computeMaxReceivedPower - getCarrierFrequency:" << bandListening->getCarrierFrequency()
+            //            << " getBandwidth:" << bandListening->getBandwidth() << endl;
+
+            maxReceptionPower = narrowbandSignalAnalogModel->computeMaxPower(reception->getStartTime(), reception->getEndTime());
+        }
+    }
+
+    //if ((narrowbandSignalAnalogModel) && (computeIsReceptionPossible(transmission)))
+    //    maxReceptionPower = narrowbandSignalAnalogModel->computeMaxPower(reception->getStartTime(), reception->getEndTime());
 
     //EV << "ReceiverBase::computeMaxReceivedPower received MAX: " << maxReceptionPower << " - sensitivity: " << this->getMinReceptionPower() << endl;
     return maxReceptionPower;

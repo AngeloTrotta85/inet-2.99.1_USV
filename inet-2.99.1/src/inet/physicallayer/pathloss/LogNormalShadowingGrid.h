@@ -51,6 +51,11 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
         std::list<struct Cell> children;
     } Cell_t;
 
+    typedef struct PointChar {
+        double exponent;
+        double stddev;
+    } PointChar_t;
+
   protected:
     virtual void initialize(int stage) override;
     virtual int numInitStages() const override { return NUM_INIT_STAGES; }
@@ -85,6 +90,8 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     Cell_t grid_map;
     Coord scenarioCoordMin;
     Coord scenarioCoordMax;
+
+    std::vector< std::vector<PointChar_t> > fastSignalMap;
 
     //draw option
     int max_RGB_R;
