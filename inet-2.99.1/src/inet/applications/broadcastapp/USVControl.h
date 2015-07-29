@@ -64,6 +64,8 @@ protected:
     /** @brief This modules should only receive self-messages. */
     virtual void handleMessage(cMessage *msg) override;
 
+    virtual void finish() override;
+
     bool checkIfScan(void);
 
     double calculateUncorrelatedDistance(Coord point);
@@ -75,7 +77,7 @@ protected:
     void startScanning(void);
     void endScanning(void);
 
-    void drawScannedPoint(Coord position);
+    void drawScannedPoint(Coord position, bool isBusy);
 
     virtual void receiveSignal(cComponent *source, simsignal_t signalID, double d) override;
 
@@ -89,11 +91,13 @@ public:
 
     void getAlphaSigmaInPoint(Coord point, double &alpha, double &sigma);
 
+protected:
+    std::list<PointScan> scannedPoints;
 
 private:
 
     std::list<PointScan> scannedPoints_fromOthers;
-    std::list<PointScan> scannedPoints;
+
     int pktGenerated;
     unsigned int scanningID_idx;
 

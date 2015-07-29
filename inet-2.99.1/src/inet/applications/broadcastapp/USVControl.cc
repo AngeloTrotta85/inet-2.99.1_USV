@@ -194,9 +194,7 @@ void USVControl::endScanning(void) {
     scanResult ? EV << "busy"<< endl : EV << "free" << endl;
 
     // drawGrafically the point
-    if (scanResult) {
-        drawScannedPoint(ffmob->getCurrentPosition());
-    }
+    drawScannedPoint(ffmob->getCurrentPosition(), scanResult);
 
     // add point to the scanned list
     PointScan newps;
@@ -338,7 +336,7 @@ void USVControl::addScannedPointsFromOthers(ScannedPointsList *pkt) {
     updateMobilityPointsParameters();
 }
 
-void USVControl::drawScannedPoint(Coord position) {
+void USVControl::drawScannedPoint(Coord position, bool isBusy) {
 
     if (ev.isGUI()) {
         physicallayer::PhysicalEnvironment *physicalEnvironment = dynamic_cast<physicallayer::PhysicalEnvironment *>(getModuleByPath("environment"));
@@ -359,7 +357,12 @@ void USVControl::drawScannedPoint(Coord position) {
             newPoint->setAttribute("position", buffer);
 
             //shape attribute
-            newPoint->setAttribute("shape", "sphere 4");
+            if (isBusy) {
+                newPoint->setAttribute("shape", "sphere 4");
+            }
+            else {
+                newPoint->setAttribute("shape", "cuboid 4 4 1");
+            }
 
             //material and fill-color constant
             newPoint->setAttribute("material", "vacuum");
@@ -389,6 +392,30 @@ void USVControl::receiveSignal(cComponent *source, simsignal_t signalID, double 
         if (isScanning) {
             scanningList.push_back(rssi);
         }
+    }
+}
+
+void USVControl::finish(void) {
+    if (this->getParentModule()->getIndex() == 0) {
+        std::list<PointScan> fullList;
+        //printf("%s SONO 0", this->getFullPath().c_str());
+        int numberOfNodes = this->getParentModule()->getParentModule()->par("numHosts");
+
+        //printf("%s e ci sono %d host\n", this->getFullPath().c_str(), numberOfNodes);
+
+        for (int i = 0; i < numberOfNodes; i++) {
+            USVControl *usvNode = check_and_cast<USVControl *>(this->getParentModule()->getParentModule()->getSubmodule("host", i)->getSubmodule("usv_brain"));
+
+            //printf("Sono %s\n", usvNode->getFullPath().c_str());
+
+            for (std::list<PointScan>::iterator it = usvNode->scannedPoints.begin();  it != usvNode->scannedPoints.end();  it++) {
+                fullList.push_back(*it);
+            }
+        }
+
+        //for (std::list<PointScan>::iterator it = fullList.begin();  it != fullList.end();  it++) {
+        //    printf("%d: [%lf:%lf] -> %s\n", it->scanningHostAddr, it->pos.x, it->pos.y, it->scanLog.actualResult ? "busy": "free");
+        //}
     }
 }
 
