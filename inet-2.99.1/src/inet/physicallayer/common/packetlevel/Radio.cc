@@ -311,7 +311,7 @@ void Radio::startReception(RadioFrame *radioFrame)
     if (arrival->getStartTime() == simTime()) {
         bool isReceptionAttempted = (radioMode == RADIO_MODE_RECEIVER || radioMode == RADIO_MODE_TRANSCEIVER) && medium->isReceptionAttempted(this, transmission);
 
-
+        /*
         const IReception *reception = medium->getReception(this, transmission);
         const IListening *listening = medium->getListening(this, transmission);
 
@@ -320,6 +320,7 @@ void Radio::startReception(RadioFrame *radioFrame)
 
         if ((minPow != W(NaN)) && (minPow > W(0))) emit(minRSSISignal, minPow.get());
         if ((maxPow != W(NaN)) && (maxPow > W(0))) emit(maxRSSISignal, maxPow.get());
+        */
 
 
         EV_INFO << "Reception of " << (IRadioFrame *)radioFrame << " as " << transmission << " is " << (isReceptionAttempted ? "attempted" : "ignored") << ".\n";
@@ -335,7 +336,7 @@ void Radio::endReception(cMessage *message)
     RadioFrame *radioFrame = static_cast<RadioFrame *>(message->getControlInfo());
     EV_INFO << "Reception of " << (IRadioFrame *)radioFrame << " as " << radioFrame->getTransmission() << " is completed.\n";
 
-    /*const ITransmission *transmission = radioFrame->getTransmission();
+    const ITransmission *transmission = radioFrame->getTransmission();
     const IReception *reception = medium->getReception(this, transmission);
     const IListening *listening = medium->getListening(this, transmission);
 
@@ -343,7 +344,7 @@ void Radio::endReception(cMessage *message)
     W maxPow = receiver->computeMaxReceivedPower(listening, reception, transmission);
 
     if ((minPow != W(NaN)) && (minPow > W(0))) emit(minRSSISignal, minPow.get());
-    if ((maxPow != W(NaN)) && (maxPow > W(0))) emit(maxRSSISignal, maxPow.get());*/
+    if ((maxPow != W(NaN)) && (maxPow > W(0))) emit(maxRSSISignal, maxPow.get());
 
     if ((radioMode == RADIO_MODE_RECEIVER || radioMode == RADIO_MODE_TRANSCEIVER) && message == endReceptionTimer) {
         cPacket *macFrame = medium->receivePacket(this, radioFrame);

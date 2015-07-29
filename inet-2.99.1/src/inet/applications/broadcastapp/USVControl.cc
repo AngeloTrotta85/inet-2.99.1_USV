@@ -166,7 +166,7 @@ void USVControl::startScanning(void) {
 void USVControl::endScanning(void) {
 
     // end scanning
-    EV_DEBUG << "End scanning the channel" << endl;
+    //EV_DEBUG << "End scanning the channel" << endl;
 
     ffmob->setForcedStop(false);
 

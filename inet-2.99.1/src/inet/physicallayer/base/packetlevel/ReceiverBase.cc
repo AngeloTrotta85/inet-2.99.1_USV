@@ -90,17 +90,17 @@ W ReceiverBase::computeMaxReceivedPower(const IListening *listening, const IRece
     //            << " bandListening:" << listening->getDetailStringRepresentation() << endl;
     //EV << "ReceiverBase::computeMaxReceivedPower - analogModel:" << narrowbandSignalAnalogModel
     //        << " bandListening:" << bandListening << endl;
-    //EV << "ReceiverBase::computeMaxReceivedPower1 - getCarrierFrequency:" << bandListening->getCarrierFrequency()
-    //            << " getBandwidth:" << bandListening->getBandwidth() << endl;
+    //EV << "ReceiverBase::computeMaxReceivedPower1 - bandList::getCarrierFrequency:" << bandListening->getCarrierFrequency()
+    //        << " analModel::carrFreq: " << narrowbandSignalAnalogModel->getCarrierFrequency()
+    //            << " - bandList::getBandwidth:" << bandListening->getBandwidth()
+    //            << " analModel::getBandwidth:" << narrowbandSignalAnalogModel->getBandwidth() << endl;
 
     if (narrowbandSignalAnalogModel && bandListening) {
         if ((bandListening->getCarrierFrequency() == narrowbandSignalAnalogModel->getCarrierFrequency()) &&
                 (bandListening->getBandwidth() == narrowbandSignalAnalogModel->getBandwidth())) {
 
-            //EV << "ReceiverBase::computeMaxReceivedPower - getCarrierFrequency:" << bandListening->getCarrierFrequency()
-            //            << " getBandwidth:" << bandListening->getBandwidth() << endl;
-
             maxReceptionPower = narrowbandSignalAnalogModel->computeMaxPower(reception->getStartTime(), reception->getEndTime());
+            //EV << "maxReceptionPower: " << maxReceptionPower << endl;
         }
     }
 
