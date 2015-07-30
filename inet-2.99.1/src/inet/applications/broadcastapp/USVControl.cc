@@ -42,6 +42,7 @@ void USVControl::initialize(int stage) {
         pathLossMapAvailable = par("pathLossMapAvailable").boolValue();
         defaultRepulsiveWeigth = par("defaultRepulsiveWeigth");
         desiredWeigthRatio = par("desiredWeigthRatio");
+        sizeOfScenaioReportCells = par("sizeOfScenaioReportCells");
 
         //scanPowerThreshold = W(par("scanPowerThreshold").doubleValue());
         scanPowerThreshold = mW(math::dBm2mW(par("scanPowerThreshold")));
@@ -397,21 +398,64 @@ void USVControl::receiveSignal(cComponent *source, simsignal_t signalID, double 
 
 void USVControl::finish(void) {
     if (this->getParentModule()->getIndex() == 0) {
+        std::vector< std::vector< CellScanReport > > gridPointsMatrix;
         std::list<PointScan> fullList;
-        //printf("%s SONO 0", this->getFullPath().c_str());
+        //fprintf(stderr, "%s SONO 0\n", this->getFullPath().c_str());fflush(stderr);
         int numberOfNodes = this->getParentModule()->getParentModule()->par("numHosts");
 
-        //printf("%s e ci sono %d host\n", this->getFullPath().c_str(), numberOfNodes);
+        gridPointsMatrix.resize((ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x) / sizeOfScenaioReportCells);
+        for (unsigned int x = 0; x < gridPointsMatrix.size(); x++) {
+
+            gridPointsMatrix[x].resize((ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y) / sizeOfScenaioReportCells);
+
+            for (unsigned int y = 0; y < gridPointsMatrix[x].size(); y++) {
+                gridPointsMatrix[x][y].scanReport = false;
+                //gridPointsMatrix[x][y].listPoints.clear();
+            }
+        }
+
+        //fprintf(stderr, "La mia mappa è di demensioni %lux%lu\n", gridPointsMatrix.size(), gridPointsMatrix[0].size());fflush(stderr);
+
+
+        //fprintf(stderr, "%s e ci sono %d host\n", this->getFullPath().c_str(), numberOfNodes);fflush(stderr);
 
         for (int i = 0; i < numberOfNodes; i++) {
             USVControl *usvNode = check_and_cast<USVControl *>(this->getParentModule()->getParentModule()->getSubmodule("host", i)->getSubmodule("usv_brain"));
 
-            //printf("Sono %s\n", usvNode->getFullPath().c_str());
+            //fprintf(stderr, "Sono %s\n", usvNode->getFullPath().c_str());fflush(stderr);
 
             for (std::list<PointScan>::iterator it = usvNode->scannedPoints.begin();  it != usvNode->scannedPoints.end();  it++) {
                 fullList.push_back(*it);
+
+                int xP = MIN((it->pos.x - ffmob->getConstraintAreaMin().x) / sizeOfScenaioReportCells, gridPointsMatrix.size() - 1);
+                int yP = MIN((it->pos.y - ffmob->getConstraintAreaMin().y) / sizeOfScenaioReportCells, gridPointsMatrix[0].size() - 1);
+
+                gridPointsMatrix[xP][yP].listPoints.push_back(*it);
             }
         }
+
+        //make the report
+        for (unsigned int x = 0; x < gridPointsMatrix.size(); x++) {
+            for (unsigned int y = 0; y < gridPointsMatrix[x].size(); y++) {
+                for (std::list<PointScan>::iterator it = gridPointsMatrix[x][y].listPoints.begin(); it != gridPointsMatrix[x][y].listPoints.end(); it++) {
+                    PointScan *ps = &(*it);
+                    if (ps->scanLog.actualResult) {
+                        gridPointsMatrix[x][y].scanReport = true;
+
+                        break;
+                    }
+                }
+
+                if (gridPointsMatrix[x][y].listPoints.size() > 0){
+                    fprintf(stderr, "[%s] ", gridPointsMatrix[x][y].scanReport ? "1" : "0");fflush(stderr);
+                }
+                else {
+                    fprintf(stderr, "[X] ");fflush(stderr);
+                }
+            }
+            fprintf(stderr, "\n");fflush(stderr);
+        }
+
 
         //for (std::list<PointScan>::iterator it = fullList.begin();  it != fullList.end();  it++) {
         //    printf("%d: [%lf:%lf] -> %s\n", it->scanningHostAddr, it->pos.x, it->pos.y, it->scanLog.actualResult ? "busy": "free");

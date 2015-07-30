@@ -27,6 +27,14 @@
 #include "inet/mobility/single/FieldForceMobility.h"
 #include "inet/physicallayer/pathloss/LogNormalShadowingGrid.h"
 
+/* Misc defines */
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif  /* MAX */
+
+#ifndef MIN
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif  /* MIN */
 
 namespace inet {
 
@@ -52,6 +60,11 @@ public:
         double pathloss_alpha;
         double lognormal_sigma;
     } PointMapSignalCharacteristics;
+
+    typedef struct CellScanReport_s{
+        std::list<PointScan> listPoints;
+        bool scanReport;
+    } CellScanReport;
 
 protected:
 
@@ -97,6 +110,8 @@ protected:
 private:
 
     std::list<PointScan> scannedPoints_fromOthers;
+
+    double sizeOfScenaioReportCells;
 
     int pktGenerated;
     unsigned int scanningID_idx;
