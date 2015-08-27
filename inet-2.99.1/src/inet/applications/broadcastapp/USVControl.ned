@@ -27,6 +27,8 @@ simple USVControl
     double scanningTime @unit(s) = default (1s);		// time needed to permirm a scanning
     double scanPowerThreshold @unit(dBm) = default (-90dBm);	// thresholt to decide if the channel is free or not
     double sizeOfScenaioReportCells @unit(m) = default(20m);		// size of the cell to make report on channel availability
+    string outputCellsScanReport;							// output file name for the cells report
+    double sigmaMultiplierInTxRangeCalculation = default(2); // multiplier for the sigma in range calculation
     
     @display("i=misc/joystick");
 }

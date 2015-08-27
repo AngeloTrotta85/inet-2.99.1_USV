@@ -17,6 +17,7 @@
 #define USVCONTROL_H_
 
 #include <list>
+#include <string>
 #include <vector>
 
 #include "inet/common/INETDefs.h"
@@ -46,6 +47,7 @@ public:
     typedef struct ScanResult_s {
         W powerReceived;
         bool actualResult;
+        bool calculatedResult;
     } ScanResult;
 
     typedef struct PointScan_s {
@@ -64,6 +66,7 @@ public:
     typedef struct CellScanReport_s{
         std::list<PointScan> listPoints;
         bool scanReport;
+        bool calculateReport;
     } CellScanReport;
 
 protected:
@@ -89,6 +92,8 @@ protected:
 
     void startScanning(void);
     void endScanning(void);
+
+    bool calcIfInRangeTransm(bool scan_result_debug, W resScan_debug);
 
     void drawScannedPoint(Coord position, bool isBusy);
 
@@ -121,6 +126,8 @@ private:
     double defaultRepulsiveWeigth;
     double desiredWeigthRatio;
 
+    double sigmaMultiplierInTxRangeCalculation;
+
     FieldForceMobility *ffmob;
     physicallayer::LogNormalShadowingGrid *pathLossModel;
 
@@ -141,6 +148,8 @@ private:
     bool isScanning;
     std::list<W> scanningList;
     W scanPowerThreshold;
+
+    std::string filename_output_grid;
 
 };
 

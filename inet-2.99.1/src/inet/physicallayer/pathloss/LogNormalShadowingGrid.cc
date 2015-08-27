@@ -120,6 +120,26 @@ double LogNormalShadowingGrid::computePathLoss_parametric(mps propagationSpeed, 
     return PL_ris;
 }
 
+m LogNormalShadowingGrid::getThresholdDistance(double p_tx_dBm, double sigma_mult, double threshold_dBm, Coord receiverPos,
+        IRadio *receiverRadio, Hz frequency) {
+    double grid_alphaRx, grid_sigmaRx;
+
+    grid_alphaRx = alpha;
+    grid_sigmaRx = sigma;
+    getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, receiverPos, grid_alphaRx, grid_sigmaRx);
+
+    m d0 = m(1.0);
+    const IRadioMedium *radioMedium = receiverRadio->getMedium();
+    mps propagationSpeed = radioMedium->getPropagation()->getPropagationSpeed();
+
+    double freeSpacePathLoss = computeFreeSpacePathLoss(propagationSpeed / frequency, d0, grid_alphaRx, systemLoss);
+    double PL_d0_db = 10.0 * log10(1 / freeSpacePathLoss);
+
+    m d = d0 * pow(10, (p_tx_dBm - PL_d0_db + (sigma_mult * grid_sigmaRx) - threshold_dBm) / (10 * grid_alphaRx));
+
+    return d;
+}
+
 double LogNormalShadowingGrid::computePathLoss(mps propagationSpeed, Hz frequency, m distance) const
 {
     return computePathLoss_parametric(propagationSpeed, frequency, distance, alpha, sigma);

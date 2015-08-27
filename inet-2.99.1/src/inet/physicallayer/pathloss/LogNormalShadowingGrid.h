@@ -72,6 +72,8 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     virtual double computePathLoss(mps propagationSpeed, Hz frequency, m distance) const override;
     virtual double computePathLossExt(mps propagationSpeed, Hz frequency, m distance, Coord transmitter, Coord receiver) const override;
 
+    m getThresholdDistance(double p_tx_dBm, double sigma_mult, double threshold_dBm, Coord receiverPos, IRadio *receiverRadio, Hz frequency);
+
     void getAlphaSigmaFromAbsCoord(Coord point, double &alpha_p, double &sigma_p) const;
 
   private:

@@ -18,6 +18,7 @@
 #include "inet/environment/common/PhysicalEnvironment.h"
 
 #include "inet/physicallayer/common/packetlevel/Radio.h"
+#include "inet/physicallayer/ieee80211/packetlevel/Ieee80211ScalarTransmitter.h"
 
 namespace inet {
 
@@ -43,6 +44,8 @@ void USVControl::initialize(int stage) {
         defaultRepulsiveWeigth = par("defaultRepulsiveWeigth");
         desiredWeigthRatio = par("desiredWeigthRatio");
         sizeOfScenaioReportCells = par("sizeOfScenaioReportCells");
+        filename_output_grid = par("outputCellsScanReport").stdstringValue();
+        sigmaMultiplierInTxRangeCalculation = par("sigmaMultiplierInTxRangeCalculation");
 
         //scanPowerThreshold = W(par("scanPowerThreshold").doubleValue());
         scanPowerThreshold = mW(math::dBm2mW(par("scanPowerThreshold")));
@@ -164,6 +167,80 @@ void USVControl::startScanning(void) {
 
 }
 
+bool USVControl::calcIfInRangeTransm(bool scan_result_debug, W resScan_debug) {
+    bool ris = false;
+
+    cModule *tower0 = this->getParentModule()->getParentModule()->getSubmodule("tower", 0);
+
+    //EV << "calcIfInRangeTransm - " << tower0->getFullPath() << " - vectnumber: " << tower0->getVectorSize() << endl;
+
+    for (int i = 0; i < tower0->getVectorSize() ; i++) {
+        MobilityBase *txMob                                         = check_and_cast<MobilityBase *>(this->getParentModule()->getParentModule()->getSubmodule("tower", i)->getSubmodule("mobility"));
+        physicallayer::Radio *receiverRadio                         = check_and_cast<physicallayer::Radio *>(this->getParentModule()->getSubmodule("wlan", 0)->getSubmodule("radio"));
+        physicallayer::Radio *radioTX                               = check_and_cast<physicallayer::Radio *>(this->getParentModule()->getParentModule()->getSubmodule("tower", i)->getSubmodule("wlan", 0)->getSubmodule("radio"));
+        physicallayer::Ieee80211ScalarTransmitter *radioTransmitter = check_and_cast<physicallayer::Ieee80211ScalarTransmitter *>(radioTX->getSubmodule("transmitter"));
+
+        Coord receiverPos       = ffmob->getCurrentPosition();
+        Hz frequency            = radioTransmitter->getCarrierFrequency();
+        double p_tx_dBm         = math::mW2dBm(radioTX->getTransmitter()->getMaxPower().get() * 1000);
+        double sigma_mult       = sigmaMultiplierInTxRangeCalculation;
+        double threshold_dBm    = math::mW2dBm(scanPowerThreshold.get() * 1000);
+
+        m mThDist = pathLossModel->getThresholdDistance(p_tx_dBm, sigma_mult, threshold_dBm, receiverPos, receiverRadio, frequency);
+
+        if (txMob->getCurrentPosition().distance(ffmob->getCurrentPosition()) <= mThDist.get()) {
+            ris = true;
+            break;
+        }
+    }
+
+    if (ris != scan_result_debug) {
+        for (int i = 0; i < tower0->getVectorSize() ; i++) {
+            double p_tx_dBm;
+            double sigma_mult;
+            double threshold_dBm;
+            Coord receiverPos = ffmob->getCurrentPosition();
+            MobilityBase *txMob = check_and_cast<MobilityBase *>(this->getParentModule()->getParentModule()->getSubmodule("tower", i)->getSubmodule("mobility"));
+            physicallayer::Radio *receiverRadio = check_and_cast<physicallayer::Radio *>(this->getParentModule()->getSubmodule("wlan", 0)->getSubmodule("radio"));
+            physicallayer::Radio *radioTX = check_and_cast<physicallayer::Radio *>(this->getParentModule()->getParentModule()->getSubmodule("tower", i)->getSubmodule("wlan", 0)->getSubmodule("radio"));
+            physicallayer::Ieee80211ScalarTransmitter *radioTransmitter = check_and_cast<physicallayer::Ieee80211ScalarTransmitter *>(radioTX->getSubmodule("transmitter"));
+
+            Hz frequency = radioTransmitter->getCarrierFrequency();
+
+            std::stringstream printStr;
+
+            printStr << "TRANSMITTING POWER: " << radioTX->getTransmitter()->getMaxPower() << endl;
+
+            printStr << "Complete " << radioTX->getTransmitter()->getCompleteStringRepresentation() << endl;
+
+            p_tx_dBm = math::mW2dBm(radioTX->getTransmitter()->getMaxPower().get() * 1000);
+            sigma_mult = sigmaMultiplierInTxRangeCalculation;
+            threshold_dBm = math::mW2dBm(scanPowerThreshold.get() * 1000);
+
+            printStr << "Calc TH-Distance:"
+                    << " p_tx_dBm: " << p_tx_dBm
+                    << "; sigma_mult: " << sigma_mult
+                    << "; threshold_dBm: " << threshold_dBm
+                    << "; receiverPos: " << receiverPos
+                    << "; receiverRadio: " << receiverRadio->getFullPath()
+                    << "; frequency: " << frequency
+                    << endl;
+
+            m mThDist = pathLossModel->getThresholdDistance(p_tx_dBm, sigma_mult, threshold_dBm, receiverPos, receiverRadio, frequency);
+
+            printStr << "Calc TH-Distance ris: " << mThDist.get() << " meters" << endl;
+
+            printStr << "Calc TH-Distance. Distance from the transmitter: " << txMob->getCurrentPosition().distance(ffmob->getCurrentPosition()) << " meters" << endl;
+
+            printStr << "Calculate says: " << ris << " while the scanning says: " << scan_result_debug << " with pow scanned: " << resScan_debug << "(" << math::mW2dBm(resScan_debug.get()*1000) << "dbm)" << endl;
+
+            fprintf(stderr, "DEBUG!!!\n%s", printStr.str().c_str());
+        }
+    }
+
+    return ris;
+}
+
 void USVControl::endScanning(void) {
 
     // end scanning
@@ -191,6 +268,8 @@ void USVControl::endScanning(void) {
         scanResult = true;
     }
 
+    bool calculatedRes = calcIfInRangeTransm(scanResult, resScan);
+
     EV_DEBUG << "End scanning procedure. Max power: " << resScan << " [thr: " << scanPowerThreshold << "] resulting in channel ";
     scanResult ? EV << "busy"<< endl : EV << "free" << endl;
 
@@ -205,6 +284,7 @@ void USVControl::endScanning(void) {
 
     newps.scanLog.actualResult = scanResult;
     newps.scanLog.powerReceived = resScan;
+    newps.scanLog.calculatedResult = calculatedRes;
 
     newps.scanningID = scanningID_idx++;
     scannedPoints.push_back(newps);
@@ -398,6 +478,7 @@ void USVControl::receiveSignal(cComponent *source, simsignal_t signalID, double 
 
 void USVControl::finish(void) {
     if (this->getParentModule()->getIndex() == 0) {
+
         std::vector< std::vector< CellScanReport > > gridPointsMatrix;
         std::list<PointScan> fullList;
         //fprintf(stderr, "%s SONO 0\n", this->getFullPath().c_str());fflush(stderr);
@@ -410,12 +491,12 @@ void USVControl::finish(void) {
 
             for (unsigned int y = 0; y < gridPointsMatrix[x].size(); y++) {
                 gridPointsMatrix[x][y].scanReport = false;
+                gridPointsMatrix[x][y].calculateReport = false;
                 //gridPointsMatrix[x][y].listPoints.clear();
             }
         }
 
         //fprintf(stderr, "La mia mappa è di demensioni %lux%lu\n", gridPointsMatrix.size(), gridPointsMatrix[0].size());fflush(stderr);
-
 
         //fprintf(stderr, "%s e ci sono %d host\n", this->getFullPath().c_str(), numberOfNodes);fflush(stderr);
 
@@ -435,31 +516,99 @@ void USVControl::finish(void) {
         }
 
         //make the report
+        std::string fn_grid_scan = filename_output_grid + std::string("_scan");
+        std::string fn_grid_calc = filename_output_grid + std::string("_calc");
+        std::string fn_grid_diff = filename_output_grid + std::string("_diff");
+
+        FILE *f_grid_scan = fopen(fn_grid_scan.c_str(), "w");
+        FILE *f_grid_calc = fopen(fn_grid_calc.c_str(), "w");
+        FILE *f_grid_diff = fopen(fn_grid_diff.c_str(), "w");
+
+
+        double cell_free, cell_busy, cell_unknown, tot_cell;
+        cell_free = cell_busy = cell_unknown = tot_cell = 0;
+
         for (unsigned int x = 0; x < gridPointsMatrix.size(); x++) {
             for (unsigned int y = 0; y < gridPointsMatrix[x].size(); y++) {
+                tot_cell++;
+
                 for (std::list<PointScan>::iterator it = gridPointsMatrix[x][y].listPoints.begin(); it != gridPointsMatrix[x][y].listPoints.end(); it++) {
                     PointScan *ps = &(*it);
                     if (ps->scanLog.actualResult) {
                         gridPointsMatrix[x][y].scanReport = true;
 
-                        break;
+                        //break;
+                    }
+                    if (ps->scanLog.calculatedResult) {
+                        gridPointsMatrix[x][y].calculateReport = true;
+
+                        //break;
                     }
                 }
 
                 if (gridPointsMatrix[x][y].listPoints.size() > 0){
-                    fprintf(stderr, "[%s] ", gridPointsMatrix[x][y].scanReport ? "1" : "0");fflush(stderr);
+                    if (f_grid_scan) fprintf(f_grid_scan, "%s ", gridPointsMatrix[x][y].scanReport ? "1" : "0");
+                    if (f_grid_calc) fprintf(f_grid_calc, "%s ", gridPointsMatrix[x][y].calculateReport ? "1" : "0");
+                    //fprintf(stderr, "[%s] ", gridPointsMatrix[x][y].scanReport ? "1" : "0");fflush(stderr);
+                    if (gridPointsMatrix[x][y].scanReport) {
+                        cell_busy++;
+                    } else {
+                        cell_free++;
+                    }
                 }
                 else {
-                    fprintf(stderr, "[X] ");fflush(stderr);
+                    if (f_grid_scan) fprintf(f_grid_scan, "X ");
+                    if (f_grid_calc) fprintf(f_grid_calc, "X ");
+                    //fprintf(stderr, "[X] ");fflush(stderr);
+                    cell_unknown++;
+                }
+
+                if (gridPointsMatrix[x][y].scanReport != gridPointsMatrix[x][y].calculateReport) {
+                    if (gridPointsMatrix[x][y].calculateReport) {
+                        if (f_grid_diff) fprintf(f_grid_diff, "N ");
+                    } else {
+                        if (f_grid_diff) fprintf(f_grid_diff, "P ");
+                    }
+                }
+                else {
+                    if (f_grid_diff) fprintf(f_grid_diff, "- ");
                 }
             }
-            fprintf(stderr, "\n");fflush(stderr);
+
+            if (f_grid_scan) fprintf(f_grid_scan, "\n");
+            if (f_grid_calc) fprintf(f_grid_calc, "\n");
+            if (f_grid_diff) fprintf(f_grid_diff, "\n");
+            //fprintf(stderr, "\n");fflush(stderr);
         }
 
+        if (f_grid_scan) fclose(f_grid_scan);
+        if (f_grid_calc) fclose(f_grid_calc);
+        if (f_grid_diff) fclose(f_grid_diff);
 
-        //for (std::list<PointScan>::iterator it = fullList.begin();  it != fullList.end();  it++) {
-        //    printf("%d: [%lf:%lf] -> %s\n", it->scanningHostAddr, it->pos.x, it->pos.y, it->scanLog.actualResult ? "busy": "free");
-        //}
+        recordScalar("freeCells", cell_free);
+        recordScalar("unknownCells", cell_unknown);
+        recordScalar("busyCells", cell_busy);
+        recordScalar("totCells", tot_cell);
+        recordScalar("percentageCellScan", (cell_free + cell_busy) / tot_cell);
+
+        // scan percentage
+        int n_busy, n_free, n_tot;
+        n_busy = n_free = n_tot = 0;
+
+        for (std::list<PointScan>::iterator it = fullList.begin();  it != fullList.end();  it++) {
+            //    printf("%d: [%lf:%lf] -> %s\n", it->scanningHostAddr, it->pos.x, it->pos.y, it->scanLog.actualResult ? "busy": "free");
+            n_tot++;
+            if (it->scanLog.actualResult) {
+                n_busy++;
+            }
+            else {
+                n_free++;
+            }
+        }
+
+        recordScalar("freeScans", n_free);
+        recordScalar("busyScans", n_busy);
+        recordScalar("totScans", n_tot);
     }
 }
 

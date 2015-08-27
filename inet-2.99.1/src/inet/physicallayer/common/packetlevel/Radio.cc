@@ -322,7 +322,6 @@ void Radio::startReception(RadioFrame *radioFrame)
         if ((maxPow != W(NaN)) && (maxPow > W(0))) emit(maxRSSISignal, maxPow.get());
         */
 
-
         EV_INFO << "Reception of " << (IRadioFrame *)radioFrame << " as " << transmission << " is " << (isReceptionAttempted ? "attempted" : "ignored") << ".\n";
         if (isReceptionAttempted)
             endReceptionTimer = timer;
