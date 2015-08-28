@@ -76,9 +76,10 @@ void LogNormalShadowingGrid::initialize(int stage)
         for (unsigned int x = 0; x < fastSignalMap.size(); x++) {
             for (unsigned int y = 0; y < fastSignalMap[x].size(); y++) {
 
-                getAlphaSigmaFromAbsCoord(Coord(x, y),
-                        fastSignalMap[x][y].exponent,
-                        fastSignalMap[x][y].stddev);
+                getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, Coord(x, y), fastSignalMap[x][y].exponent, fastSignalMap[x][y].stddev);
+                //getAlphaSigmaFromAbsCoord(Coord(x, y),
+                //        fastSignalMap[x][y].exponent,
+                //        fastSignalMap[x][y].stddev);
 
             }
         }

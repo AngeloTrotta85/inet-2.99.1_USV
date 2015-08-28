@@ -84,6 +84,7 @@ protected:
 
     bool checkIfScan(void);
 
+    double calculateUncorrelatedDistanceFromAlpha(double alpha);
     double calculateUncorrelatedDistance(Coord point);
     double calculateDecayFromWeigthAndChannelLoss(double desiredRatio, double fieldWeigth, Coord point);
     double calculateForceFromPoint(Coord point);

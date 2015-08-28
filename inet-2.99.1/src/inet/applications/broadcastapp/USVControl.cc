@@ -90,7 +90,7 @@ void USVControl::initialize(int stage) {
     else if (stage == INITSTAGE_PHYSICAL_LAYER) {
         if (pathLossMapAvailable) {
 
-            // copy the map from the pathloss simulation module
+            //copy the map from the pathloss simulation module
             for (unsigned int x = 0; x < signalPropMap.size(); x++) {
                 for (unsigned int y = 0; y < signalPropMap[x].size(); y++) {
 
@@ -293,6 +293,16 @@ void USVControl::endScanning(void) {
     updateMobilityPointsParameters();
 }
 
+double USVControl::calculateUncorrelatedDistanceFromAlpha(double alpha) {
+    //TODO faccio semplice, da modificare
+    double alpha_tmp = alpha;
+    // faccio una proporzione per cui urban=8(alpha>=5), suburban=500(alpha<=2)
+    if (alpha_tmp < 2) alpha_tmp = 2;
+    if (alpha_tmp > 5) alpha_tmp = 5;
+
+    return (((alpha_tmp - 2.0) / (5.0 - 2.0)) * (8.0 - 50.0)) + 50.0;   //uscito dalla retta passante per 2 punti (2,50)-(5,8)
+}
+
 double USVControl::calculateUncorrelatedDistance(Coord point) {
     double alpha_loss;
     //double sigma_loss;
@@ -300,16 +310,9 @@ double USVControl::calculateUncorrelatedDistance(Coord point) {
     alpha_loss = signalPropMap[point.x][point.y].pathloss_alpha;
     //sigma_loss = signalPropMap[point.x][point.y].lognormal_sigma;
 
-    //TODO faccio semplice, da modificare
-    double ris;
+    //ris = (((alpha_loss - 2) / (5 - 2)) * (8 - 50)) + 50;   //uscito dalla retta passante per 2 punti (2,50)-(5,8)
 
-    // faccio una proporzione per cui urban=8(alpha>=5), suburban=500(alpha<=2)
-    if (alpha_loss < 2) alpha_loss = 2;
-    if (alpha_loss > 5) alpha_loss = 5;
-
-    ris = (((alpha_loss - 2) / (5 - 2)) * (8 - 50)) + 50;   //uscito dalla retta passante per 2 punti (2,50)-(5,8)
-
-    return ris;
+    return calculateUncorrelatedDistanceFromAlpha(alpha_loss);
 }
 
 double USVControl::calculateDecayFromWeigthAndChannelLoss(double desiredRatio, double fieldWeigth, Coord point) {
@@ -478,6 +481,236 @@ void USVControl::receiveSignal(cComponent *source, simsignal_t signalID, double 
 
 void USVControl::finish(void) {
     if (this->getParentModule()->getIndex() == 0) {
+
+        double cellMinSize = 25;    //TODO 25 is a magic number! (to make at least 3 uncorrelated scanning in urban environment)
+
+        std::list<PointScan> fullList;
+        int numberOfNodes = this->getParentModule()->getParentModule()->par("numHosts");
+
+        //copy the map from the pathloss simulation module
+        std::vector< std::vector<PointMapSignalCharacteristics> > signalMap;
+
+        signalMap.resize((int)(ffmob->getConstraintAreaMax().x));
+        for (unsigned int x = 0; x < signalMap.size(); x++) {
+            //signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y));
+            signalMap[x].resize((int)(ffmob->getConstraintAreaMax().y));
+
+            for (unsigned int y = 0; y < signalMap[x].size(); y++) {
+                pathLossModel->getAlphaSigmaFromAbsCoord(Coord(x, y),
+                        signalMap[x][y].pathloss_alpha,
+                        signalMap[x][y].lognormal_sigma);
+            }
+        }
+
+        // create a grid of cell-size 25x25 and a list of "CellScanReport"
+        std::vector< std::vector< CellScanReport *> > gridReportMatrix;
+        std::list<CellScanReport> gridReportList;
+
+        gridReportMatrix.resize((ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x) / cellMinSize);
+        for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
+            gridReportMatrix[x].resize((ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y) / cellMinSize);
+
+            for (unsigned int y = 0; y < gridReportMatrix[x].size(); y++) {
+                gridReportMatrix[x][y] = nullptr;
+            }
+        }
+
+        for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
+            for (unsigned int y = 0; y < gridReportMatrix[x].size(); y++) {
+                if (gridReportMatrix[x][y] == nullptr) {
+                    CellScanReport newCellRep;
+
+                    newCellRep.scanReport = false;
+                    newCellRep.calculateReport = false;
+
+                    gridReportList.push_back(newCellRep);
+                    gridReportMatrix[x][y] = &gridReportList.back();
+
+                    double alpha, sigma, dist;
+                    int xp = (x * cellMinSize) + (cellMinSize/2);
+                    int yp = (y * cellMinSize) + (cellMinSize/2);
+                    pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
+
+                    dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
+
+                    fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position [%i %i]\n",
+                            dist, alpha, xp, yp);
+
+                    for (unsigned int xnext = x; xnext < gridReportMatrix.size(); xnext++) {
+                        unsigned int ynext = y;
+                        for (ynext = y; ynext < gridReportMatrix[xnext].size(); ynext++) {
+                            if (gridReportMatrix[xnext][ynext] == nullptr) {
+                                double alpha_next, sigma_next;
+                                int xp_next = (xnext * cellMinSize) + (cellMinSize/2);
+                                int yp_next = (ynext * cellMinSize) + (cellMinSize/2);
+                                pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp_next), alpha_next, sigma_next);
+
+                                fprintf(stderr, "Alpha1: %lf; Alpha2: %lf; DistanceX: %i; DistanceY: %i\n",
+                                        alpha, alpha_next, abs(xp_next - xp), abs(yp_next - yp));
+
+                                if (    ((abs(xp_next - xp)) < dist) &&
+                                        ((abs(yp_next - yp)) < dist) &&
+                                        (fabs(alpha_next - alpha) < 0.3)  ) {       //TODO 0.5 = magic number (offset in alpha to consider the cell of the same alpha)
+                                    gridReportMatrix[xnext][ynext] = gridReportMatrix[x][y];
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (ynext == y) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+
+        for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
+            for (unsigned int y = 0; y < gridReportMatrix[x].size(); y++) {
+                fprintf(stderr, "%p ", gridReportMatrix[x][y]);
+            }
+            fprintf(stderr, "\n");
+        }
+
+        for (int i = 0; i < numberOfNodes; i++) {
+            USVControl *usvNode = check_and_cast<USVControl *>(this->getParentModule()->getParentModule()->getSubmodule("host", i)->getSubmodule("usv_brain"));
+
+            //fprintf(stderr, "Sono %s\n", usvNode->getFullPath().c_str());fflush(stderr);
+
+            for (std::list<PointScan>::iterator it = usvNode->scannedPoints.begin();  it != usvNode->scannedPoints.end();  it++) {
+                fullList.push_back(*it);
+
+                int xP = MIN((it->pos.x - ffmob->getConstraintAreaMin().x) / cellMinSize, gridReportMatrix.size() - 1);
+                int yP = MIN((it->pos.y - ffmob->getConstraintAreaMin().y) / cellMinSize, gridReportMatrix[0].size() - 1);
+
+                gridReportMatrix[xP][yP]->listPoints.push_back(*it);
+            }
+        }
+
+        //make the report
+        std::string fn_grid_scan = filename_output_grid + std::string("_scan");
+        std::string fn_grid_calc = filename_output_grid + std::string("_calc");
+        std::string fn_grid_diff = filename_output_grid + std::string("_diff");
+        std::string fn_grid_color = filename_output_grid + std::string("_color");
+        std::list<std::pair<int, CellScanReport *>> grid_color_list;
+
+        FILE *f_grid_scan = fopen(fn_grid_scan.c_str(), "w");
+        FILE *f_grid_calc = fopen(fn_grid_calc.c_str(), "w");
+        FILE *f_grid_diff = fopen(fn_grid_diff.c_str(), "w");
+        FILE *f_grid_color = fopen(fn_grid_color.c_str(), "w");
+
+
+        double cell_free, cell_busy, cell_unknown, tot_cell;
+        cell_free = cell_busy = cell_unknown = tot_cell = 0;
+
+        for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
+            for (unsigned int y = 0; y < gridReportMatrix[x].size(); y++) {
+                tot_cell++;
+
+                int color_cell = -1;
+                int max_color = -1;
+                for (std::list<std::pair<int, CellScanReport *>>::iterator it = grid_color_list.begin(); it != grid_color_list.end(); it++) {
+                    if (max_color < it->first) max_color = it->first;
+
+                    if (it->second == gridReportMatrix[x][y]) {
+                        color_cell = it->first;
+                    }
+                }
+
+                if (color_cell == (-1)) {
+                    color_cell = max_color + 1;
+                    grid_color_list.push_back(std::make_pair(color_cell, gridReportMatrix[x][y]));
+                }
+                if (f_grid_color) fprintf(f_grid_color, "%02d ", color_cell);
+
+                for (std::list<PointScan>::iterator it = gridReportMatrix[x][y]->listPoints.begin(); it != gridReportMatrix[x][y]->listPoints.end(); it++) {
+                    PointScan *ps = &(*it);
+                    if (ps->scanLog.actualResult) {
+                        gridReportMatrix[x][y]->scanReport = true;
+
+                        //break;
+                    }
+                    if (ps->scanLog.calculatedResult) {
+                        gridReportMatrix[x][y]->calculateReport = true;
+
+                        //break;
+                    }
+                }
+
+                if (gridReportMatrix[x][y]->listPoints.size() > 0){
+                    if (f_grid_scan) fprintf(f_grid_scan, "%s ", gridReportMatrix[x][y]->scanReport ? "1" : "0");
+                    if (f_grid_calc) fprintf(f_grid_calc, "%s ", gridReportMatrix[x][y]->calculateReport ? "1" : "0");
+                    //fprintf(stderr, "[%s] ", gridPointsMatrix[x][y].scanReport ? "1" : "0");fflush(stderr);
+                    if (gridReportMatrix[x][y]->scanReport) {
+                        cell_busy++;
+                    } else {
+                        cell_free++;
+                    }
+                }
+                else {
+                    if (f_grid_scan) fprintf(f_grid_scan, "X ");
+                    if (f_grid_calc) fprintf(f_grid_calc, "X ");
+                    //fprintf(stderr, "[X] ");fflush(stderr);
+                    cell_unknown++;
+                }
+
+                if (gridReportMatrix[x][y]->scanReport != gridReportMatrix[x][y]->calculateReport) {
+                    if (gridReportMatrix[x][y]->calculateReport) {
+                        if (f_grid_diff) fprintf(f_grid_diff, "N ");
+                    } else {
+                        if (f_grid_diff) fprintf(f_grid_diff, "P ");
+                    }
+                }
+                else {
+                    if (f_grid_diff) fprintf(f_grid_diff, "- ");
+                }
+            }
+
+            if (f_grid_scan) fprintf(f_grid_scan, "\n");
+            if (f_grid_calc) fprintf(f_grid_calc, "\n");
+            if (f_grid_diff) fprintf(f_grid_diff, "\n");
+            if (f_grid_color) fprintf(f_grid_color, "\n");
+            //fprintf(stderr, "\n");fflush(stderr);
+        }
+
+        if (f_grid_scan) fclose(f_grid_scan);
+        if (f_grid_calc) fclose(f_grid_calc);
+        if (f_grid_diff) fclose(f_grid_diff);
+        if (f_grid_color) fclose(f_grid_color);
+
+        recordScalar("freeCells", cell_free);
+        recordScalar("unknownCells", cell_unknown);
+        recordScalar("busyCells", cell_busy);
+        recordScalar("totCells", tot_cell);
+        recordScalar("percentageCellScan", (cell_free + cell_busy) / tot_cell);
+
+        // scan percentage
+        int n_busy, n_free, n_tot;
+        n_busy = n_free = n_tot = 0;
+
+        for (std::list<PointScan>::iterator it = fullList.begin();  it != fullList.end();  it++) {
+            //    printf("%d: [%lf:%lf] -> %s\n", it->scanningHostAddr, it->pos.x, it->pos.y, it->scanLog.actualResult ? "busy": "free");
+            n_tot++;
+            if (it->scanLog.actualResult) {
+                n_busy++;
+            }
+            else {
+                n_free++;
+            }
+        }
+
+        recordScalar("freeScans", n_free);
+        recordScalar("busyScans", n_busy);
+        recordScalar("totScans", n_tot);
+    }
+
+
+
+    //if (this->getParentModule()->getIndex() == 0) {
+    if (false) {
 
         std::vector< std::vector< CellScanReport > > gridPointsMatrix;
         std::list<PointScan> fullList;
