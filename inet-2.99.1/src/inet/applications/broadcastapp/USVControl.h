@@ -28,6 +28,9 @@
 #include "inet/mobility/single/FieldForceMobility.h"
 #include "inet/physicallayer/pathloss/LogNormalShadowingGrid.h"
 
+#include "inet/physicallayer/common/packetlevel/Radio.h"
+#include "inet/physicallayer/ieee80211/packetlevel/Ieee80211ScalarTransmitter.h"
+
 /* Misc defines */
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -61,6 +64,7 @@ public:
     typedef struct PointMapSignalCharacteristics_s {
         double pathloss_alpha;
         double lognormal_sigma;
+        int number_of_scans;
     } PointMapSignalCharacteristics;
 
     typedef struct CellScanReport_s{
@@ -98,6 +102,9 @@ protected:
 
     void drawScannedPoint(Coord position, bool isBusy);
 
+    void addScanOnApproximatedMap(PointScan *ps);
+    void updateShadowingMap(void);
+
     virtual void receiveSignal(cComponent *source, simsignal_t signalID, double d) override;
 
 public:
@@ -115,9 +122,20 @@ protected:
 
 private:
 
+    // transmiting power informations
+    W powerTX;
+    double powerTX_dBm;
+    Coord positionTX;
+    double pathLossD0;
+    physicallayer::Ieee80211ScalarTransmitter *tower0RadioTransmitter;
+    physicallayer::Radio *myRadio;
+
+
     std::list<PointScan> scannedPoints_fromOthers;
 
     double sizeOfScenaioReportCells;
+
+    double radiusApproximatedMap;
 
     int pktGenerated;
     unsigned int scanningID_idx;
@@ -141,6 +159,8 @@ private:
     std::vector< std::vector<PointMapSignalCharacteristics> > signalPropMap;
     Coord signalMapOffset;
 
+    //std::vector< std::vector<std::list <PointScan> > > approximatedPropMap;
+
     // scanned point color
     int r_point_col;
     int g_point_col;
@@ -148,6 +168,7 @@ private:
 
     bool isScanning;
     std::list<W> scanningList;
+    double scanPowerThreshold_dBm;
     W scanPowerThreshold;
 
     std::string filename_output_grid;

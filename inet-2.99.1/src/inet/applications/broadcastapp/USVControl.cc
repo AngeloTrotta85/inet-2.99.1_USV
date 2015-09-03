@@ -17,9 +17,6 @@
 
 #include "inet/environment/common/PhysicalEnvironment.h"
 
-#include "inet/physicallayer/common/packetlevel/Radio.h"
-#include "inet/physicallayer/ieee80211/packetlevel/Ieee80211ScalarTransmitter.h"
-
 namespace inet {
 
 Define_Module(USVControl);
@@ -46,9 +43,11 @@ void USVControl::initialize(int stage) {
         sizeOfScenaioReportCells = par("sizeOfScenaioReportCells");
         filename_output_grid = par("outputCellsScanReport").stdstringValue();
         sigmaMultiplierInTxRangeCalculation = par("sigmaMultiplierInTxRangeCalculation");
+        radiusApproximatedMap = par("radiusApproximatedMap");
 
         //scanPowerThreshold = W(par("scanPowerThreshold").doubleValue());
-        scanPowerThreshold = mW(math::dBm2mW(par("scanPowerThreshold")));
+        scanPowerThreshold_dBm = par("scanPowerThreshold");
+        scanPowerThreshold = mW(math::dBm2mW(scanPowerThreshold_dBm));
 
         ffmob = check_and_cast<FieldForceMobility *>(this->getParentModule()->getSubmodule("mobility"));
         pathLossModel = check_and_cast<physicallayer::LogNormalShadowingGrid *>(this->getParentModule()->getParentModule()->getSubmodule("radioMedium")->getSubmodule("pathLoss"));
@@ -57,13 +56,18 @@ void USVControl::initialize(int stage) {
 
         //signalPropMap.resize((int)(ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x));
         signalPropMap.resize((int)(ffmob->getConstraintAreaMax().x));
+        //approximatedPropMap.resize((int)(ffmob->getConstraintAreaMax().x));
         for (unsigned int x = 0; x < signalPropMap.size(); x++) {
             //signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y));
             signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y));
+            //approximatedPropMap.resize((int)(ffmob->getConstraintAreaMax().y));
 
             for (unsigned int y = 0; y < signalPropMap[x].size(); y++) {
                 signalPropMap[x][y].pathloss_alpha = 2;
                 signalPropMap[x][y].lognormal_sigma = 1;
+                signalPropMap[x][y].number_of_scans = 0;
+
+                //approximatedPropMap[x][y].resize(0);
             }
         }
 
@@ -98,10 +102,28 @@ void USVControl::initialize(int stage) {
                             signalPropMap[x][y].pathloss_alpha,
                             signalPropMap[x][y].lognormal_sigma);
 
+                    signalPropMap[x][y].number_of_scans = 1;
                 }
             }
-
         }
+    }
+    else if (stage == INITSTAGE_LAST) {
+
+        // GET tower0 Informations
+        cModule *tower0 = this->getParentModule()->getParentModule()->getSubmodule("tower", 0);
+        MobilityBase *txMob = check_and_cast<MobilityBase *>(tower0->getSubmodule("mobility"));
+        physicallayer::Radio *radioTX = check_and_cast<physicallayer::Radio *>(tower0->getSubmodule("wlan", 0)->getSubmodule("radio"));
+
+        tower0RadioTransmitter = check_and_cast<physicallayer::Ieee80211ScalarTransmitter *>(radioTX->getSubmodule("transmitter"));
+        myRadio = check_and_cast<physicallayer::Radio *>(this->getParentModule()->getSubmodule("wlan", 0)->getSubmodule("radio"));
+
+        powerTX = radioTX->getTransmitter()->getMaxPower();
+        powerTX_dBm = math::mW2dBm(powerTX.get() * 1000);
+        positionTX = txMob->getCurrentPosition();
+        pathLossD0 = pathLossModel->getPathLossD0(myRadio, tower0RadioTransmitter->getCarrierFrequency(), 2.0);
+        //powerTX = mW(10000);
+        //positionTX = Coord(50,50);
+        //pathLossD0 = 0;
     }
 }
 
@@ -289,6 +311,9 @@ void USVControl::endScanning(void) {
     newps.scanningID = scanningID_idx++;
     scannedPoints.push_back(newps);
 
+    addScanOnApproximatedMap(&newps);
+    updateShadowingMap();
+
     // at the end update the parameters of the mobility control
     updateMobilityPointsParameters();
 }
@@ -391,6 +416,7 @@ void USVControl::addScannedPointsFromOthers(ScannedPointsList *pkt) {
     ffmob->setVolatileRepulsiveForce(pkt->getNodeAddr(), pkt->getNodePosition(), defaultRepulsiveWeigth, decayVolatileVal);
 
 
+    bool addedAtLeastOne = false;
     for (unsigned int i = 0; i < pkt->getScanPointsArraySize(); i++) {
         bool already = false;
 
@@ -412,12 +438,86 @@ void USVControl::addScannedPointsFromOthers(ScannedPointsList *pkt) {
             ps.scan_timestamp = sp->timestamp;
             ps.scanningID = sp->scanID;
             ps.scanningHostAddr = pkt->getNodeAddr();
+            ps.scanLog.actualResult = sp->decisionMade;
+            ps.scanLog.powerReceived = W(sp->watt_read);
 
             scannedPoints_fromOthers.push_back(ps);
+
+            addScanOnApproximatedMap(&ps);
+            addedAtLeastOne = true;
         }
     }
 
+    if (addedAtLeastOne) {
+        updateShadowingMap();
+    }
+
     updateMobilityPointsParameters();
+}
+
+void USVControl::addScanOnApproximatedMap(PointScan *ps) {
+    if (!pathLossMapAvailable) {
+        int minX, maxX, minY, maxY;
+
+        minX = MAX(0, ps->pos.x - radiusApproximatedMap);
+        maxX = MIN(ffmob->getConstraintAreaMax().x, ps->pos.x + radiusApproximatedMap);
+        minY = MAX(0, ps->pos.y - radiusApproximatedMap);
+        maxY = MIN(ffmob->getConstraintAreaMax().y, ps->pos.y + radiusApproximatedMap);
+
+        for (int x = minX; x < maxX; x++) {
+            for (int y = minY; y < maxY; y++) {
+
+                if (ps->pos.distance(Coord(x,y)) <= radiusApproximatedMap) {
+
+                    double actPathLossD0;
+                    if (signalPropMap[x][y].number_of_scans == 0) {
+                        actPathLossD0 = pathLossD0;
+                    }
+                    else {
+                        actPathLossD0 = pathLossModel->getPathLossD0(myRadio, tower0RadioTransmitter->getCarrierFrequency(), signalPropMap[x][y].pathloss_alpha);
+                    }
+
+                    double actAlpha = 2.0;  //default but to define later
+
+                    if (ps->scanLog.actualResult) {
+
+                        double prx_dbm = math::mW2dBm(ps->scanLog.powerReceived.get() * 1000);
+                        //actAlpha = (ptx_dbm - prx_dbm - pathLossD0) / (10.0 * log10(ps->pos.distance(positionTX)));
+                        actAlpha = (powerTX_dBm - prx_dbm - actPathLossD0) / (10.0 * log10(ps->pos.distance(positionTX)));
+
+                    }
+                    else {
+                        // make a guess of the alpha because there was not received any signal
+                        actAlpha = (powerTX_dBm - actPathLossD0 - scanPowerThreshold_dBm) / (10.0 * log10(ps->pos.distance(positionTX)));
+                    }
+
+                    //DEBUG!
+                    //fprintf(stderr, "Calculating new ALPHA. Ptx=%.2lf - Prx=%.2lf(%lfmW) - d=%.2lf - PLd0=%.2lf --- RES:%.2lf\n",
+                    //        ptx_dbm, prx_dbm, ps->scanLog.powerReceived.get()*1000, ps->pos.distance(positionTX), pathLossD0, actAlpha);fflush(stderr);
+
+                    if (signalPropMap[x][y].number_of_scans == 0) {
+                        signalPropMap[x][y].number_of_scans = 1;
+                        signalPropMap[x][y].pathloss_alpha = actAlpha;
+                    }
+                    else {
+
+                        double newM = signalPropMap[x][y].pathloss_alpha +
+                                ((actAlpha - signalPropMap[x][y].pathloss_alpha) / (((double)(signalPropMap[x][y].number_of_scans)) + 1.0));
+
+                        signalPropMap[x][y].number_of_scans++;
+                        signalPropMap[x][y].pathloss_alpha = newM;
+                    }
+                }
+            }
+        }
+
+    }
+}
+
+void USVControl::updateShadowingMap(void) {
+    if (!pathLossMapAvailable) {
+        //TODO
+    }
 }
 
 void USVControl::drawScannedPoint(Coord position, bool isBusy) {
@@ -506,9 +606,9 @@ void USVControl::finish(void) {
         std::vector< std::vector< CellScanReport *> > gridReportMatrix;
         std::list<CellScanReport> gridReportList;
 
-        gridReportMatrix.resize((ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x) / cellMinSize);
+        gridReportMatrix.resize((ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x - 1) / cellMinSize);     //'-1' is to avoid a cell of size 1
         for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
-            gridReportMatrix[x].resize((ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y) / cellMinSize);
+            gridReportMatrix[x].resize((ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y - 1) / cellMinSize);     //'-1' is to avoid a cell of size 1
 
             for (unsigned int y = 0; y < gridReportMatrix[x].size(); y++) {
                 gridReportMatrix[x][y] = nullptr;
@@ -579,24 +679,27 @@ void USVControl::finish(void) {
             USVControl *usvNode = check_and_cast<USVControl *>(this->getParentModule()->getParentModule()->getSubmodule("host", i)->getSubmodule("usv_brain"));
 
             //fprintf(stderr, "Sono %s\n", usvNode->getFullPath().c_str());fflush(stderr);
-
             for (std::list<PointScan>::iterator it = usvNode->scannedPoints.begin();  it != usvNode->scannedPoints.end();  it++) {
                 fullList.push_back(*it);
 
                 int xP = MIN((it->pos.x - ffmob->getConstraintAreaMin().x) / cellMinSize, gridReportMatrix.size() - 1);
-                int yP = MIN((it->pos.y - ffmob->getConstraintAreaMin().y) / cellMinSize, gridReportMatrix[0].size() - 1);
+                int yP = MIN((it->pos.y - ffmob->getConstraintAreaMin().y) / cellMinSize, gridReportMatrix[xP].size() - 1);
 
                 gridReportMatrix[xP][yP]->listPoints.push_back(*it);
             }
         }
 
         //make the report
+        //std::string fn_grid_alpha = filename_output_grid + std::string("_alpha");
+        //std::string fn_grid_gridalpha = filename_output_grid + std::string("_gridalpha");
         std::string fn_grid_scan = filename_output_grid + std::string("_scan");
         std::string fn_grid_calc = filename_output_grid + std::string("_calc");
         std::string fn_grid_diff = filename_output_grid + std::string("_diff");
         std::string fn_grid_color = filename_output_grid + std::string("_color");
         std::list<std::pair<int, CellScanReport *>> grid_color_list;
 
+        FILE *f_grid_alpha = nullptr; // = fopen(fn_grid_alpha.c_str(), "w");
+        FILE *f_grid_gridalpha = nullptr; // = fopen(fn_grid_gridalpha.c_str(), "w");
         FILE *f_grid_scan = fopen(fn_grid_scan.c_str(), "w");
         FILE *f_grid_calc = fopen(fn_grid_calc.c_str(), "w");
         FILE *f_grid_diff = fopen(fn_grid_diff.c_str(), "w");
@@ -609,6 +712,23 @@ void USVControl::finish(void) {
         for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
             for (unsigned int y = 0; y < gridReportMatrix[x].size(); y++) {
                 tot_cell++;
+
+                double sum_alpha = 0;
+                double count_alpha = 0;
+                int count_alpha_scan = 0;
+                for (int i = 0; i < cellMinSize; i++) {
+                    int xi = i + (cellMinSize * x);
+                    for (int j = 0; j < cellMinSize; j++) {
+                        int yi = j + (cellMinSize * y);
+                        sum_alpha += signalPropMap[xi][yi].pathloss_alpha;
+                        count_alpha_scan += signalPropMap[xi][yi].number_of_scans;
+                        count_alpha++;
+                    }
+                }
+                if (f_grid_gridalpha)  {
+                    if (count_alpha_scan > 0)   fprintf(f_grid_gridalpha, "%.01lf ", sum_alpha / count_alpha);
+                    else                        fprintf(f_grid_gridalpha, "%.01lf ", 0.0);
+                }
 
                 int color_cell = -1;
                 int max_color = -1;
@@ -669,6 +789,7 @@ void USVControl::finish(void) {
                 }
             }
 
+            if (f_grid_gridalpha) fprintf(f_grid_gridalpha, "\n");
             if (f_grid_scan) fprintf(f_grid_scan, "\n");
             if (f_grid_calc) fprintf(f_grid_calc, "\n");
             if (f_grid_diff) fprintf(f_grid_diff, "\n");
@@ -676,6 +797,18 @@ void USVControl::finish(void) {
             //fprintf(stderr, "\n");fflush(stderr);
         }
 
+        for (unsigned int x = 0; x < signalPropMap.size(); x++) {
+            for (unsigned int y = 0; y < signalPropMap[x].size(); y++) {
+                if (f_grid_alpha) {
+                    if (signalPropMap[x][y].number_of_scans > 0)    fprintf(f_grid_alpha, "%.01lf ", signalPropMap[x][y].pathloss_alpha);
+                    else                                            fprintf(f_grid_alpha, "%.01lf ", 0.0);
+                }
+            }
+            if (f_grid_alpha) fprintf(f_grid_alpha, "\n");
+        }
+
+        if (f_grid_alpha) fclose(f_grid_alpha);
+        if (f_grid_gridalpha) fclose(f_grid_gridalpha);
         if (f_grid_scan) fclose(f_grid_scan);
         if (f_grid_calc) fclose(f_grid_calc);
         if (f_grid_diff) fclose(f_grid_diff);
@@ -692,7 +825,7 @@ void USVControl::finish(void) {
         n_busy = n_free = n_tot = 0;
 
         for (std::list<PointScan>::iterator it = fullList.begin();  it != fullList.end();  it++) {
-            //    printf("%d: [%lf:%lf] -> %s\n", it->scanningHostAddr, it->pos.x, it->pos.y, it->scanLog.actualResult ? "busy": "free");
+            // printf("%d: [%lf:%lf] -> %s\n", it->scanningHostAddr, it->pos.x, it->pos.y, it->scanLog.actualResult ? "busy": "free");
             n_tot++;
             if (it->scanLog.actualResult) {
                 n_busy++;
@@ -707,7 +840,27 @@ void USVControl::finish(void) {
         recordScalar("totScans", n_tot);
     }
 
+    if (true) {
+        //make the report
+        char buff[8];
+        snprintf(buff, sizeof(buff), "%d", this->getParentModule()->getIndex());
 
+        std::string fn_grid_alpha = filename_output_grid + std::string("_alpha-") + std::string(buff);
+
+        FILE *f_grid_alpha = fopen(fn_grid_alpha.c_str(), "w");
+
+        for (unsigned int x = 0; x < signalPropMap.size(); x++) {
+            for (unsigned int y = 0; y < signalPropMap[x].size(); y++) {
+                if (f_grid_alpha) {
+                    if (signalPropMap[x][y].number_of_scans > 0)    fprintf(f_grid_alpha, "%.01lf ", signalPropMap[x][y].pathloss_alpha);
+                    else                                            fprintf(f_grid_alpha, "%.01lf ", 0.0);
+                }
+            }
+            if (f_grid_alpha) fprintf(f_grid_alpha, "\n");
+        }
+
+        if (f_grid_alpha) fclose(f_grid_alpha);
+    }
 
     //if (this->getParentModule()->getIndex() == 0) {
     if (false) {

@@ -29,6 +29,7 @@ simple USVControl
     double sizeOfScenaioReportCells @unit(m) = default(20m);		// size of the cell to make report on channel availability
     string outputCellsScanReport;							// output file name for the cells report
     double sigmaMultiplierInTxRangeCalculation = default(2); // multiplier for the sigma in range calculation
+    double radiusApproximatedMap = default(25);		// radius for 
     
     @display("i=misc/joystick");
 }

@@ -231,6 +231,23 @@ void FieldForceMobility::updateFieldForce(void) {
         volRepulsiveSum += actForce;
     }
 
+    //erase the useless volatile values
+    for (std::map<unsigned int, repulsive_point_t>::iterator it = volatileRepulsivePointsList.begin(); it != volatileRepulsivePointsList.end(); it++) {
+        repulsive_point_t *actP = &(it->second);
+
+        Coord actForce = calcRepulsiveForceTimeDecade(actP, defaultVolatileTimeDecay);
+
+        if (actForce.length() < 0.001) {
+            volatileRepulsivePointsList.erase(it);
+
+            //restart from the beginning
+            it = volatileRepulsivePointsList.begin();
+            if (it == volatileRepulsivePointsList.end()) {
+                break;
+            }
+        }
+    }
+
     EV << "Adding volatile repulsive forces sum: " << volRepulsiveSum << endl;
     force += volRepulsiveSum;
     //*********************************************************************************************
