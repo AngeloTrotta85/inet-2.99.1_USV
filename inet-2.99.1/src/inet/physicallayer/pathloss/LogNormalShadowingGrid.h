@@ -63,6 +63,9 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     /** @brief Reading the input xml file with the channel characteristics */
     bool readChannelGridFile();
 
+    /** @brief Make a random map of the channel characteristics */
+    bool makeRandomShadowMap(void);
+
     /** @brief fill recoursively the grid-struct from the xml file */
     void loadXMLtree(cXMLElementList *xml, Cell_t *grid);
 
@@ -78,8 +81,9 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     void getAlphaSigmaFromAbsCoord(Coord point, double &alpha_p, double &sigma_p) const;
 
   private:
-    void setXMLattr(cXMLElement *el, Coord posObj, double dimObj, double opacity);
+    void setXMLattr(cXMLElement *el, Coord posObj, double dimObjX, double dimObjY, double opacity);
     void addXMLchild_object(cXMLElement *parent, Cell_t *map, Coord min, Coord max);
+    void addXMLchild_randomMap(cXMLElement *parent);
     void printMap(Cell_t *map, int ntab);
     void initCellGrid(Cell_t *cell);
 
@@ -93,6 +97,11 @@ class INET_API LogNormalShadowingGrid : public LogNormalShadowing
     Cell_t grid_map;
     Coord scenarioCoordMin;
     Coord scenarioCoordMax;
+
+    bool randomShadowMap;
+    double gridCellRandomSize;
+    cPar *alpha_rand = nullptr;
+    cPar *sigma_rand = nullptr;
 
     std::vector< std::vector<PointChar_t> > fastSignalMap;
 

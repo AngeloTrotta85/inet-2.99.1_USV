@@ -21,6 +21,11 @@ module LogNormalShadowingGrid extends LogNormalShadowing
         xml shadowFile;        // The input file that specify the characteristics of the log-normal path loss shadowing for each grid-cell
         xml testShadowDraw = default(xml("<environment/>"));
         
+        bool randomShadowMap = default(false);	// if true the xml file is not read and the shadow map is computed randomly
+        volatile double pathLossAlpha;					// decay exponential factor (could be a random value)
+        volatile double pathLossSigma;					// sigma parameter fo the log-normal shadowing
+        double gridCellRandomSize @unit(m) = default(50m);	// size of the cells to randomize
+        
         int maxRGBdraw_r = default(203);		// Specify the red (RGB) value for the shadow drawing
         int maxRGBdraw_g = default(65);			// Specify the green (RGB) value for the shadow drawing
         int maxRGBdraw_b = default(84);			// Specify the blue (RGB) value for the shadow drawing

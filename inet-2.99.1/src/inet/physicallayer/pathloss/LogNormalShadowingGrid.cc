@@ -20,6 +20,15 @@
 //#include "inet/common/ModuleAccess.h"
 //#include "inet/physicallayer/common/packetlevel/RadioMedium.h"
 
+/* Misc defines */
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif  /* MAX */
+
+#ifndef MIN
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif  /* MIN */
+
 namespace inet {
 namespace physicallayer {
 
@@ -41,6 +50,11 @@ void LogNormalShadowingGrid::initialize(int stage)
         scenarioCoordMax.x = par("constraintAreaMaxX");
         scenarioCoordMax.y = par("constraintAreaMaxY");
         scenarioCoordMax.z = par("constraintAreaMaxZ");
+        alpha_rand = &par("pathLossAlpha");
+        sigma_rand = &par("pathLossSigma");
+
+        randomShadowMap = par("randomShadowMap").boolValue();
+        gridCellRandomSize = par("gridCellRandomSize");
 
         max_RGB_R = par("maxRGBdraw_r");
         max_RGB_G = par("maxRGBdraw_g");
@@ -49,38 +63,57 @@ void LogNormalShadowingGrid::initialize(int stage)
         max_alpha_val = par("maxDrawAlpha");
         color2dark = par("color2dark").boolValue();
 
-        if (!readChannelGridFile())
-            throw cRuntimeError("LogNormalShadowingGrid: error in reading the shadowing file");
+        if (randomShadowMap) {
+            if (!makeRandomShadowMap())
+                throw cRuntimeError("LogNormalShadowingGrid: error creating the random shadow map");
+        }
+        else {
+            if (!readChannelGridFile())
+                throw cRuntimeError("LogNormalShadowingGrid: error in reading the shadowing file");
+        }
     }
     else if (stage == INITSTAGE_PHYSICAL_ENVIRONMENT) {
-        if (ev.isGUI()) {
-            PhysicalEnvironment *physicalEnvironment = dynamic_cast<PhysicalEnvironment *>(getModuleByPath("environment"));
-            if (physicalEnvironment != nullptr) {
-                cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
-                addXMLchild_object(shadowsXml, &grid_map, scenarioCoordMin, scenarioCoordMax);
-                physicalEnvironment->addFromXML(shadowsXml);
+
+        if (randomShadowMap) {
+            if (ev.isGUI()) {
+                PhysicalEnvironment *physicalEnvironment = dynamic_cast<PhysicalEnvironment *>(getModuleByPath("environment"));
+                if (physicalEnvironment != nullptr) {
+                    cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
+                    addXMLchild_randomMap(shadowsXml);
+                    physicalEnvironment->addFromXML(shadowsXml);
+                }
             }
         }
-
-        fastSignalMap.resize((int)(scenarioCoordMax.x));
-        for (unsigned int x = 0; x < fastSignalMap.size(); x++) {
-            //signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y));
-            fastSignalMap[x].resize((int)(scenarioCoordMax.y));
-
-            for (unsigned int y = 0; y < fastSignalMap[x].size(); y++) {
-                fastSignalMap[x][y].exponent = 2;
-                fastSignalMap[x][y].stddev = 1;
+        else {
+            if (ev.isGUI()) {
+                PhysicalEnvironment *physicalEnvironment = dynamic_cast<PhysicalEnvironment *>(getModuleByPath("environment"));
+                if (physicalEnvironment != nullptr) {
+                    cXMLElement *shadowsXml = new cXMLElement("environment", "", nullptr);
+                    addXMLchild_object(shadowsXml, &grid_map, scenarioCoordMin, scenarioCoordMax);
+                    physicalEnvironment->addFromXML(shadowsXml);
+                }
             }
-        }
-        // copy the map from the pathloss simulation module
-        for (unsigned int x = 0; x < fastSignalMap.size(); x++) {
-            for (unsigned int y = 0; y < fastSignalMap[x].size(); y++) {
 
-                getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, Coord(x, y), fastSignalMap[x][y].exponent, fastSignalMap[x][y].stddev);
-                //getAlphaSigmaFromAbsCoord(Coord(x, y),
-                //        fastSignalMap[x][y].exponent,
-                //        fastSignalMap[x][y].stddev);
+            fastSignalMap.resize((int)(scenarioCoordMax.x) + 1);
+            for (unsigned int x = 0; x < fastSignalMap.size(); x++) {
+                //signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y));
+                fastSignalMap[x].resize((int)(scenarioCoordMax.y) + 1);
 
+                for (unsigned int y = 0; y < fastSignalMap[x].size(); y++) {
+                    fastSignalMap[x][y].exponent = 2;
+                    fastSignalMap[x][y].stddev = 1;
+                }
+            }
+            // copy the map from the pathloss simulation module
+            for (unsigned int x = 0; x < fastSignalMap.size(); x++) {
+                for (unsigned int y = 0; y < fastSignalMap[x].size(); y++) {
+
+                    getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, Coord(x, y), fastSignalMap[x][y].exponent, fastSignalMap[x][y].stddev);
+                    //getAlphaSigmaFromAbsCoord(Coord(x, y),
+                    //        fastSignalMap[x][y].exponent,
+                    //        fastSignalMap[x][y].stddev);
+
+                }
             }
         }
     }
@@ -253,8 +286,15 @@ double LogNormalShadowingGrid::computePathLossGrid(mps propagationSpeed, Hz freq
     //EV_DEBUG << "TX at = " << transmitter << endl;
     //EV_DEBUG << "RX at = " << receiver << endl;
 
-    getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, transmitter, grid_alphaTx, grid_sigmaTx);
-    getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, receiver, grid_alphaRx, grid_sigmaRx);
+    // check if the fast map is present
+    if (fastSignalMap.size() > 0) {
+        getAlphaSigmaFromAbsCoord(transmitter, grid_alphaTx, grid_sigmaTx);
+        getAlphaSigmaFromAbsCoord(receiver, grid_alphaRx, grid_sigmaRx);
+    }
+    else {
+        getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, transmitter, grid_alphaTx, grid_sigmaTx);
+        getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, receiver, grid_alphaRx, grid_sigmaRx);
+    }
 
     //EV_DEBUG << "TX: alpha = " << grid_alphaTx << " and sigma = " << grid_sigmaTx << endl;
     //EV_DEBUG << "RX: alpha = " << grid_alphaRx << " and sigma = " << grid_sigmaRx << endl;
@@ -270,6 +310,53 @@ double LogNormalShadowingGrid::computePathLossGrid(mps propagationSpeed, Hz freq
     }
 
     return computePathLoss_parametric(propagationSpeed, frequency, distance, grid_alphaMax, grid_sigmaMax);
+}
+
+bool LogNormalShadowingGrid::makeRandomShadowMap(void) {
+
+    if (gridCellRandomSize <= 0) return false;
+
+    fastSignalMap.resize((int)(scenarioCoordMax.x) + 1);
+    for (unsigned int x = 0; x < fastSignalMap.size(); x++) {
+        //signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y));
+        fastSignalMap[x].resize((int)(scenarioCoordMax.y) + 1);
+
+        for (unsigned int y = 0; y < fastSignalMap[x].size(); y++) {
+            fastSignalMap[x][y].exponent = 2;
+            fastSignalMap[x][y].stddev = 1;
+        }
+    }
+    // copy the map from the pathloss simulation module
+    int xSteps = ((scenarioCoordMax.x - scenarioCoordMin.x) / gridCellRandomSize) + 1;
+    int ySteps = ((scenarioCoordMax.y - scenarioCoordMin.y) / gridCellRandomSize) + 1;
+    for (int x = 0; x < xSteps; x++) {
+        for (int y = 0; y < ySteps; y++) {
+            int xcmin, xcmax, ycmin, ycmax;
+            double alpha_r, sigma_r;
+            //cPar *alpha_r = nullptr;
+            //cPar *sigma_r = nullptr;
+
+            xcmin = (x * gridCellRandomSize) + scenarioCoordMin.x;
+            ycmin = (y * gridCellRandomSize) + scenarioCoordMin.y;
+
+            xcmax = MIN((int)(scenarioCoordMax.x), xcmin + gridCellRandomSize);
+            ycmax = MIN((int)(scenarioCoordMax.y), ycmin + gridCellRandomSize);
+
+            alpha_r = alpha_rand->doubleValue();
+            sigma_r = sigma_rand->doubleValue();
+
+            //fprintf(stderr, "Assigning to [%d %d] alpha:%lf, sigma:%lf\n", xcmin, ycmin, alpha_r, sigma_r); fflush(stderr);
+
+            for (int xc = xcmin; xc < xcmax; xc++) {
+                for (int yc = ycmin; yc < ycmax; yc++) {
+                    fastSignalMap[xc][yc].exponent = alpha_r;
+                    fastSignalMap[xc][yc].stddev = sigma_r;
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 /**
@@ -400,7 +487,7 @@ void LogNormalShadowingGrid::printMap(Cell_t *map, int ntab) {
     }
 }
 
-void LogNormalShadowingGrid::setXMLattr(cXMLElement *el, Coord posObj, double dimObj, double opacity) {
+void LogNormalShadowingGrid::setXMLattr(cXMLElement *el, Coord posObj, double dimObjX, double dimObjY, double opacity) {
     char buffer[64];
 
     if (opacity > 1) opacity = 1;
@@ -441,7 +528,7 @@ void LogNormalShadowingGrid::setXMLattr(cXMLElement *el, Coord posObj, double di
     el->setAttribute("position", buffer);
 
     //shape attribute
-    snprintf(buffer, sizeof(buffer), "cuboid %lf %lf %lf", dimObj, dimObj, 1.0);
+    snprintf(buffer, sizeof(buffer), "cuboid %lf %lf %lf", dimObjX, dimObjY, 1.0);
     el->setAttribute("shape", buffer);
 
     //material and fill-color constant
@@ -452,6 +539,48 @@ void LogNormalShadowingGrid::setXMLattr(cXMLElement *el, Coord posObj, double di
     snprintf(buffer, sizeof(buffer), "%lf", opacity);
     el->setAttribute("opacity", buffer);
 #endif
+}
+
+void LogNormalShadowingGrid::addXMLchild_randomMap(cXMLElement *parent) {
+    if (gridCellRandomSize <= 0) return;
+
+    // copy the map from the pathloss simulation module
+    int xSteps = ((scenarioCoordMax.x - scenarioCoordMin.x) / gridCellRandomSize) + 1;
+    int ySteps = ((scenarioCoordMax.y - scenarioCoordMin.y) / gridCellRandomSize) + 1;
+    for (int x = 0; x < xSteps; x++) {
+        for (int y = 0; y < ySteps; y++) {
+            int xcmin, xcmax, ycmin, ycmax;
+            double alpha_r, myOpacity;
+
+            xcmin = (x * gridCellRandomSize) + scenarioCoordMin.x;
+            ycmin = (y * gridCellRandomSize) + scenarioCoordMin.y;
+
+            xcmax = MIN(xcmin + gridCellRandomSize, scenarioCoordMax.x);
+            ycmax = MIN(ycmin + gridCellRandomSize, scenarioCoordMax.y);
+
+            //if ((xcmax >= scenarioCoordMax.x) || (ycmax >= scenarioCoordMax.y)) continue;
+
+            //fprintf(stderr, "xcmin %d, xcmax %d, ycmin %d, ycmax %d\n", xcmin, xcmax, ycmin, ycmax); fflush(stderr);
+
+            alpha_r = fastSignalMap[(xcmin + xcmax)/2][(ycmin + ycmax) / 2].exponent;
+            //alpha_r = intrand(7);
+
+            //fprintf(stderr, "alpha_r %lf\n", alpha_r); fflush(stderr);
+
+            if(alpha_r < min_alpha_val) alpha_r = min_alpha_val;
+            if(alpha_r > max_alpha_val) alpha_r = max_alpha_val;
+
+            myOpacity = (alpha_r - min_alpha_val) / (max_alpha_val - min_alpha_val);
+
+            cXMLElement *newGrid = new cXMLElement("object", "", parent);
+            setXMLattr(newGrid, Coord(xcmin, ycmin), xcmax - xcmin, ycmax - ycmin, myOpacity);
+            //EV << newGrid->detailedInfo() << endl;
+
+            //fprintf(stderr, "Adding element of opacity: %lf\n\n", myOpacity); fflush(stderr);
+
+            parent->appendChild(newGrid);
+        }
+    }
 }
 
 #define NE_MASK 0x01
@@ -476,7 +605,7 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
         //EV << "Appending new child. Min: " << min << " - Dim: " << max.x - min.x << endl;
 
         cXMLElement *newGrid = new cXMLElement("object", "", parent);
-        setXMLattr(newGrid, min, max.x - min.x, myOpacity);
+        setXMLattr(newGrid, min, max.x - min.x, max.y - min.y, myOpacity);
         //EV << newGrid->detailedInfo() << endl;
 
         parent->appendChild(newGrid);
@@ -537,7 +666,7 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
             new_max.y = (min.y + max.y) / 2.0;
 
             cXMLElement *newGrid = new cXMLElement("object", "", parent);
-            setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
+            setXMLattr(newGrid, new_min, new_max.x - new_min.x, new_max.y - new_min.y, myOpacity);
             //EV << newGrid->detailedInfo() << endl;
 
             parent->appendChild(newGrid);
@@ -552,7 +681,7 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
             new_max.y = (min.y + max.y) / 2.0;
 
             cXMLElement *newGrid = new cXMLElement("object", "", parent);
-            setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
+            setXMLattr(newGrid, new_min, new_max.x - new_min.x, new_max.y - new_min.y, myOpacity);
             //EV << newGrid->detailedInfo() << endl;
 
             parent->appendChild(newGrid);
@@ -567,7 +696,7 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
             new_min.y = (min.y + max.y) / 2.0;
 
             cXMLElement *newGrid = new cXMLElement("object", "", parent);
-            setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
+            setXMLattr(newGrid, new_min, new_max.x - new_min.x, new_max.y - new_min.y, myOpacity);
             //EV << newGrid->detailedInfo() << endl;
 
             parent->appendChild(newGrid);
@@ -582,7 +711,7 @@ void LogNormalShadowingGrid::addXMLchild_object(cXMLElement *parent, Cell_t *map
             new_min.y = (min.y + max.y) / 2.0;
 
             cXMLElement *newGrid = new cXMLElement("object", "", parent);
-            setXMLattr(newGrid, new_min, new_max.x - new_min.x, myOpacity);
+            setXMLattr(newGrid, new_min, new_max.x - new_min.x, new_max.y - new_min.y, myOpacity);
             //EV << newGrid->detailedInfo() << endl;
 
             parent->appendChild(newGrid);
