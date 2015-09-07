@@ -17,6 +17,11 @@
 
 #include "inet/environment/common/PhysicalEnvironment.h"
 
+
+#define CELL_MIN_SIZE 25                //TODO 25 is a magic number! (to make at least 3 uncorrelated scanning in urban environment)
+#define CELL_ALPHA_DIFF_OFFSET 0.3      //TODO 0.5 = magic number (offset in alpha to consider the cell of the same alpha)
+
+
 namespace inet {
 
 Define_Module(USVControl);
@@ -44,6 +49,7 @@ void USVControl::initialize(int stage) {
         filename_output_grid = par("outputCellsScanReport").stdstringValue();
         sigmaMultiplierInTxRangeCalculation = par("sigmaMultiplierInTxRangeCalculation");
         radiusApproximatedMap = par("radiusApproximatedMap");
+        statisticsTime = par("statisticsTime");
 
         //scanPowerThreshold = W(par("scanPowerThreshold").doubleValue());
         scanPowerThreshold_dBm = par("scanPowerThreshold");
@@ -88,6 +94,15 @@ void USVControl::initialize(int stage) {
         radioM->subscribe(physicallayer::Radio::maxRSSISignal, this);
         //radioM->subscribe(physicallayer::Radio::minSNIRSignal, this);
 
+
+        free_cells_percentage.setName("Free-cells percentage");
+        freeOverScanned_cells_percentage.setName("FreeOverScanned-cells percentage");
+        busy_cells_percentage.setName("Busy-cells percentage");
+        busyOverScanned_cells_percentage.setName("BusyOverScanned-cells percentage");
+        scanned_cells_percentage.setName("Scanned-cells percentage");
+        falsePositive_cells_percentage.setName("FalsePositive-cells percentage");
+        falseNegative_cells_percentage.setName("FalseNegative-cells percentage");
+
         WATCH_LIST(scannedPoints_fromOthers);
         WATCH_LIST(scannedPoints);
     }
@@ -124,6 +139,74 @@ void USVControl::initialize(int stage) {
         //powerTX = mW(10000);
         //positionTX = Coord(50,50);
         //pathLossD0 = 0;
+
+        if (this->getParentModule()->getIndex() == 0) {
+            statisticsTimer = new cMessage("statisticMsg");
+            scheduleAt(simTime() + statisticsTime, statisticsTimer);
+
+            double cellMinSize = CELL_MIN_SIZE;
+
+            online_gridReportMatrix.resize((ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x - 1) / cellMinSize);     //'-1' is to avoid a cell of size 1
+            for (unsigned int x = 0; x < online_gridReportMatrix.size(); x++) {
+                online_gridReportMatrix[x].resize((ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y - 1) / cellMinSize);     //'-1' is to avoid a cell of size 1
+
+                for (unsigned int y = 0; y < online_gridReportMatrix[x].size(); y++) {
+                    online_gridReportMatrix[x][y] = nullptr;
+                }
+            }
+
+            for (unsigned int x = 0; x < online_gridReportMatrix.size(); x++) {
+                for (unsigned int y = 0; y < online_gridReportMatrix[x].size(); y++) {
+                    if (online_gridReportMatrix[x][y] == nullptr) {
+                        CellScanReport newCellRep;
+
+                        newCellRep.scanReport = false;
+                        newCellRep.calculateReport = false;
+
+                        online_gridReportList.push_back(newCellRep);
+                        online_gridReportMatrix[x][y] = &online_gridReportList.back();
+
+                        double alpha, sigma, dist;
+                        int xp = (x * cellMinSize) + (cellMinSize/2);
+                        int yp = (y * cellMinSize) + (cellMinSize/2);
+                        pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
+
+                        dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
+
+                        //fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position [%i %i]\n",
+                        //        dist, alpha, xp, yp);
+
+                        for (unsigned int xnext = x; xnext < online_gridReportMatrix.size(); xnext++) {
+                            unsigned int ynext = y;
+                            for (ynext = y; ynext < online_gridReportMatrix[xnext].size(); ynext++) {
+                                if (online_gridReportMatrix[xnext][ynext] == nullptr) {
+                                    double alpha_next, sigma_next;
+                                    int xp_next = (xnext * cellMinSize) + (cellMinSize/2);
+                                    int yp_next = (ynext * cellMinSize) + (cellMinSize/2);
+                                    pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp_next), alpha_next, sigma_next);
+
+                                    //fprintf(stderr, "Alpha1: %lf; Alpha2: %lf; DistanceX: %i; DistanceY: %i\n",
+                                    //        alpha, alpha_next, abs(xp_next - xp), abs(yp_next - yp));
+
+                                    if (    ((abs(xp_next - xp)) < dist) &&
+                                            ((abs(yp_next - yp)) < dist) &&
+                                            (fabs(alpha_next - alpha) < CELL_ALPHA_DIFF_OFFSET)  ) {
+                                        online_gridReportMatrix[xnext][ynext] = online_gridReportMatrix[x][y];
+                                    }
+                                    else {
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (ynext == y) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -131,13 +214,22 @@ void USVControl::initialize(int stage) {
 void USVControl::handleMessage(cMessage *msg) {
     if (msg == checkScanTimer) {
         bool imScanning = checkIfScan();
+        //bool imScanning = dblrand() < 0.4;
 
-        if(!imScanning) {
+        if(imScanning) {
+            // make the scan
+            startScanning();
+        }
+        else {
             scheduleAt(simTime() + checkScanTimeStep, msg);
         }
     }
     else if (msg == isScanningTimer) {
         endScanning();
+    }
+    else if (msg == statisticsTimer) {
+        makeOnlineStats();
+        scheduleAt(simTime() + statisticsTime, statisticsTimer);
     }
 }
 
@@ -146,6 +238,9 @@ bool USVControl::checkIfScan(void) {
     double probToScan, maxForce;
 
     maxForce = -1;
+
+    fprintf(stderr, "Sono %02d - checkIfScan - MYscannedPoints: %02d - OTHERSscannedPoints:%02d\n",
+            this->getParentModule()->getIndex(), (int) scannedPoints.size(), (int) scannedPoints_fromOthers.size()); fflush(stderr);
 
     for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
         PointScan *ps = &(*it);
@@ -166,9 +261,6 @@ bool USVControl::checkIfScan(void) {
     if (dblrand() < probToScan) {
 
         ris = true;
-
-        // make the scan
-        startScanning();
     }
 
     return ris;
@@ -187,6 +279,61 @@ void USVControl::startScanning(void) {
 
     isScanning = true;
 
+}
+
+void USVControl::endScanning(void) {
+
+    // end scanning
+    //EV_DEBUG << "End scanning the channel" << endl;
+
+    ffmob->setForcedStop(false);
+
+    isScanning = false;
+
+    // restart the timer to check scanning
+    scheduleAt(simTime() + checkScanTimeStep + (dblrand() / 2.0), checkScanTimer);
+
+    //calculate the result
+    W resScan = W(0);
+    bool scanResult = false;
+    for (std::list<W>::iterator it = scanningList.begin();  it != scanningList.end();  it++) {
+
+        if (((*it) != W(NaN)) && ((*it) > resScan)) {
+            resScan = *it;
+        }
+
+        EV_DEBUG << "MAX: " << resScan << " - Scanning list: " << *it << endl;
+    }
+    if (resScan > scanPowerThreshold) {
+        scanResult = true;
+    }
+
+    bool calculatedRes = calcIfInRangeTransm(scanResult, resScan);
+
+    EV_DEBUG << "End scanning procedure. Max power: " << resScan << " [thr: " << scanPowerThreshold << "] resulting in channel ";
+    scanResult ? EV << "busy"<< endl : EV << "free" << endl;
+
+    // drawGrafically the point
+    drawScannedPoint(ffmob->getCurrentPosition(), scanResult);
+
+    // add point to the scanned list
+    PointScan newps;
+    newps.pos= ffmob->getCurrentPosition();
+    newps.scan_timestamp = simTime();
+    newps.scanningHostAddr = this->getParentModule()->getIndex();
+
+    newps.scanLog.actualResult = scanResult;
+    newps.scanLog.powerReceived = resScan;
+    newps.scanLog.calculatedResult = calculatedRes;
+
+    newps.scanningID = scanningID_idx++;
+    scannedPoints.push_back(newps);
+
+    addScanOnApproximatedMap(&newps);
+    updateShadowingMap();
+
+    // at the end update the parameters of the mobility control
+    updateMobilityPointsParameters();
 }
 
 bool USVControl::calcIfInRangeTransm(bool scan_result_debug, W resScan_debug) {
@@ -256,66 +403,11 @@ bool USVControl::calcIfInRangeTransm(bool scan_result_debug, W resScan_debug) {
 
             printStr << "Calculate says: " << ris << " while the scanning says: " << scan_result_debug << " with pow scanned: " << resScan_debug << "(" << math::mW2dBm(resScan_debug.get()*1000) << "dbm)" << endl;
 
-            fprintf(stderr, "DEBUG!!!\n%s", printStr.str().c_str());
+            //fprintf(stderr, "DEBUG!!!\n%s", printStr.str().c_str());
         }
     }
 
     return ris;
-}
-
-void USVControl::endScanning(void) {
-
-    // end scanning
-    //EV_DEBUG << "End scanning the channel" << endl;
-
-    ffmob->setForcedStop(false);
-
-    isScanning = false;
-
-    // restart the timer to check scanning
-    scheduleAt(simTime() + checkScanTimeStep + (dblrand() / 2.0), checkScanTimer);
-
-    //calculate the result
-    W resScan = W(0);
-    bool scanResult = false;
-    for (std::list<W>::iterator it = scanningList.begin();  it != scanningList.end();  it++) {
-
-        if (((*it) != W(NaN)) && ((*it) > resScan)) {
-            resScan = *it;
-        }
-
-        EV_DEBUG << "MAX: " << resScan << " - Scanning list: " << *it << endl;
-    }
-    if (resScan > scanPowerThreshold) {
-        scanResult = true;
-    }
-
-    bool calculatedRes = calcIfInRangeTransm(scanResult, resScan);
-
-    EV_DEBUG << "End scanning procedure. Max power: " << resScan << " [thr: " << scanPowerThreshold << "] resulting in channel ";
-    scanResult ? EV << "busy"<< endl : EV << "free" << endl;
-
-    // drawGrafically the point
-    drawScannedPoint(ffmob->getCurrentPosition(), scanResult);
-
-    // add point to the scanned list
-    PointScan newps;
-    newps.pos= ffmob->getCurrentPosition();
-    newps.scan_timestamp = simTime();
-    newps.scanningHostAddr = this->getParentModule()->getIndex();
-
-    newps.scanLog.actualResult = scanResult;
-    newps.scanLog.powerReceived = resScan;
-    newps.scanLog.calculatedResult = calculatedRes;
-
-    newps.scanningID = scanningID_idx++;
-    scannedPoints.push_back(newps);
-
-    addScanOnApproximatedMap(&newps);
-    updateShadowingMap();
-
-    // at the end update the parameters of the mobility control
-    updateMobilityPointsParameters();
 }
 
 double USVControl::calculateUncorrelatedDistanceFromAlpha(double alpha) {
@@ -579,10 +671,87 @@ void USVControl::receiveSignal(cComponent *source, simsignal_t signalID, double 
     }
 }
 
+void USVControl::makeOnlineStats(void) {
+    // here there is only node0
+    int numberOfNodes = this->getParentModule()->getParentModule()->par("numHosts");
+
+    double cellMinSize = CELL_MIN_SIZE;
+
+    for (unsigned int x = 0; x < online_gridReportMatrix.size(); x++) {
+        for (unsigned int y = 0; y < online_gridReportMatrix[x].size(); y++) {
+            online_gridReportMatrix[x][y]->calculateReport = false;
+            online_gridReportMatrix[x][y]->scanReport = false;
+            if (online_gridReportMatrix[x][y]->listPoints.size() > 0) {
+                online_gridReportMatrix[x][y]->listPoints.clear();
+            }
+        }
+    }
+
+    for (int i = 0; i < numberOfNodes; i++) {
+        USVControl *usvNode = check_and_cast<USVControl *>(this->getParentModule()->getParentModule()->getSubmodule("host", i)->getSubmodule("usv_brain"));
+
+        //fprintf(stderr, "Sono %s\n", usvNode->getFullPath().c_str());fflush(stderr);
+        for (std::list<PointScan>::iterator it = usvNode->scannedPoints.begin();  it != usvNode->scannedPoints.end();  it++) {
+
+            int xP = MIN((it->pos.x - ffmob->getConstraintAreaMin().x) / cellMinSize, online_gridReportMatrix.size() - 1);
+            int yP = MIN((it->pos.y - ffmob->getConstraintAreaMin().y) / cellMinSize, online_gridReportMatrix[xP].size() - 1);
+
+            online_gridReportMatrix[xP][yP]->listPoints.push_back(*it);
+        }
+    }
+
+    double cell_free, cell_busy, cell_unknown, tot_cell, n_falseNeg_alarms, n_falsePos_alarms;
+    cell_free = cell_busy = cell_unknown = tot_cell = n_falseNeg_alarms = n_falsePos_alarms = 0;
+
+    for (unsigned int x = 0; x < online_gridReportMatrix.size(); x++) {
+        for (unsigned int y = 0; y < online_gridReportMatrix[x].size(); y++) {
+            tot_cell++;
+
+            for (std::list<PointScan>::iterator it = online_gridReportMatrix[x][y]->listPoints.begin(); it != online_gridReportMatrix[x][y]->listPoints.end(); it++) {
+                PointScan *ps = &(*it);
+                if (ps->scanLog.actualResult) {
+                    online_gridReportMatrix[x][y]->scanReport = true;
+                }
+                if (ps->scanLog.calculatedResult) {
+                    online_gridReportMatrix[x][y]->calculateReport = true;
+                }
+            }
+
+            if (online_gridReportMatrix[x][y]->listPoints.size() > 0){
+                if (online_gridReportMatrix[x][y]->scanReport) {
+                    cell_busy++;
+                } else {
+                    cell_free++;
+                }
+
+                if (online_gridReportMatrix[x][y]->scanReport && (!online_gridReportMatrix[x][y]->calculateReport)) {
+                    n_falsePos_alarms++;
+                }
+                else if ((!online_gridReportMatrix[x][y]->scanReport) && online_gridReportMatrix[x][y]->calculateReport) {
+                    n_falseNeg_alarms++;
+                }
+            }
+            else {
+                cell_unknown++;
+            }
+        }
+    }
+
+    if ((cell_free + cell_busy) > 0) {
+        freeOverScanned_cells_percentage.record(cell_free/(cell_free + cell_busy));
+        busyOverScanned_cells_percentage.record(cell_busy/(cell_free + cell_busy));
+        falsePositive_cells_percentage.record(n_falsePos_alarms/(cell_free + cell_busy));
+        falseNegative_cells_percentage.record(n_falseNeg_alarms/(cell_free + cell_busy));
+    }
+    free_cells_percentage.record(cell_free/tot_cell);
+    busy_cells_percentage.record(cell_busy/tot_cell);
+    scanned_cells_percentage.record((cell_free + cell_busy) / tot_cell);
+}
+
 void USVControl::finish(void) {
     if (this->getParentModule()->getIndex() == 0) {
 
-        double cellMinSize = 25;    //TODO 25 is a magic number! (to make at least 3 uncorrelated scanning in urban environment)
+        double cellMinSize = CELL_MIN_SIZE;
 
         std::list<PointScan> fullList;
         int numberOfNodes = this->getParentModule()->getParentModule()->par("numHosts");
@@ -633,8 +802,8 @@ void USVControl::finish(void) {
 
                     dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
 
-                    fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position [%i %i]\n",
-                            dist, alpha, xp, yp);
+                    //fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position [%i %i]\n",
+                    //        dist, alpha, xp, yp);
 
                     for (unsigned int xnext = x; xnext < gridReportMatrix.size(); xnext++) {
                         unsigned int ynext = y;
@@ -645,12 +814,12 @@ void USVControl::finish(void) {
                                 int yp_next = (ynext * cellMinSize) + (cellMinSize/2);
                                 pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp_next), alpha_next, sigma_next);
 
-                                fprintf(stderr, "Alpha1: %lf; Alpha2: %lf; DistanceX: %i; DistanceY: %i\n",
-                                        alpha, alpha_next, abs(xp_next - xp), abs(yp_next - yp));
+                                //fprintf(stderr, "Alpha1: %lf; Alpha2: %lf; DistanceX: %i; DistanceY: %i\n",
+                                //        alpha, alpha_next, abs(xp_next - xp), abs(yp_next - yp));
 
                                 if (    ((abs(xp_next - xp)) < dist) &&
                                         ((abs(yp_next - yp)) < dist) &&
-                                        (fabs(alpha_next - alpha) < 0.3)  ) {       //TODO 0.5 = magic number (offset in alpha to consider the cell of the same alpha)
+                                        (fabs(alpha_next - alpha) < CELL_ALPHA_DIFF_OFFSET)  ) {
                                     gridReportMatrix[xnext][ynext] = gridReportMatrix[x][y];
                                 }
                                 else {
@@ -668,12 +837,12 @@ void USVControl::finish(void) {
         }
 
 
-        for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
+        /*for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
             for (unsigned int y = 0; y < gridReportMatrix[x].size(); y++) {
                 fprintf(stderr, "%p ", gridReportMatrix[x][y]);
             }
             fprintf(stderr, "\n");
-        }
+        }*/
 
         for (int i = 0; i < numberOfNodes; i++) {
             USVControl *usvNode = check_and_cast<USVControl *>(this->getParentModule()->getParentModule()->getSubmodule("host", i)->getSubmodule("usv_brain"));
@@ -696,6 +865,8 @@ void USVControl::finish(void) {
         std::string fn_grid_calc = filename_output_grid + std::string("_calc");
         std::string fn_grid_diff = filename_output_grid + std::string("_diff");
         std::string fn_grid_color = filename_output_grid + std::string("_color");
+        std::string fn_grid_falsePositiveList = filename_output_grid + std::string("_FP_list");
+        std::string fn_grid_falseNegativeList = filename_output_grid + std::string("_FN_list");
         std::list<std::pair<int, CellScanReport *>> grid_color_list;
 
         FILE *f_grid_alpha = nullptr; // = fopen(fn_grid_alpha.c_str(), "w");
@@ -704,13 +875,18 @@ void USVControl::finish(void) {
         FILE *f_grid_calc = fopen(fn_grid_calc.c_str(), "w");
         FILE *f_grid_diff = fopen(fn_grid_diff.c_str(), "w");
         FILE *f_grid_color = fopen(fn_grid_color.c_str(), "w");
+        FILE *f_grid_falsePositiveList = fopen(fn_grid_falsePositiveList.c_str(), "w");
+        FILE *f_grid_falseNegativeList = fopen(fn_grid_falseNegativeList.c_str(), "w");
 
 
-        double cell_free, cell_busy, cell_unknown, tot_cell;
-        cell_free = cell_busy = cell_unknown = tot_cell = 0;
+        double cell_free, cell_busy, cell_unknown, tot_cell, n_falseNeg_alarms, n_falsePos_alarms;
+        cell_free = cell_busy = cell_unknown = tot_cell = n_falseNeg_alarms = n_falsePos_alarms = 0;
 
         for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
             for (unsigned int y = 0; y < gridReportMatrix[x].size(); y++) {
+                int this_cell_scan_free = 0;
+                int this_cell_scan_busy = 0;
+
                 tot_cell++;
 
                 double sum_alpha = 0;
@@ -750,9 +926,14 @@ void USVControl::finish(void) {
                     PointScan *ps = &(*it);
                     if (ps->scanLog.actualResult) {
                         gridReportMatrix[x][y]->scanReport = true;
+                        this_cell_scan_busy++;
 
                         //break;
                     }
+                    else {
+                        this_cell_scan_free++;
+                    }
+
                     if (ps->scanLog.calculatedResult) {
                         gridReportMatrix[x][y]->calculateReport = true;
 
@@ -768,6 +949,23 @@ void USVControl::finish(void) {
                         cell_busy++;
                     } else {
                         cell_free++;
+                    }
+
+                    if (gridReportMatrix[x][y]->scanReport && (!gridReportMatrix[x][y]->calculateReport)) {
+                        n_falsePos_alarms++;
+
+                        if (f_grid_falsePositiveList) {
+                            fprintf(f_grid_falsePositiveList, "%d 0:%d 1:%d\n",
+                                    (int)gridReportMatrix[x][y]->listPoints.size(), this_cell_scan_free, this_cell_scan_busy);
+                        }
+                    }
+                    else if ((!gridReportMatrix[x][y]->scanReport) && gridReportMatrix[x][y]->calculateReport) {
+                        n_falseNeg_alarms++;
+
+                        if (f_grid_falseNegativeList) {
+                            fprintf(f_grid_falseNegativeList, "%d 0:%d 1:%d\n",
+                                    (int)gridReportMatrix[x][y]->listPoints.size(), this_cell_scan_free, this_cell_scan_busy);
+                        }
                     }
                 }
                 else {
@@ -813,6 +1011,17 @@ void USVControl::finish(void) {
         if (f_grid_calc) fclose(f_grid_calc);
         if (f_grid_diff) fclose(f_grid_diff);
         if (f_grid_color) fclose(f_grid_color);
+        if (f_grid_falsePositiveList) fclose(f_grid_falsePositiveList);
+        if (f_grid_falseNegativeList) fclose(f_grid_falseNegativeList);
+
+        if ((cell_free + cell_busy) > 0) {
+            recordScalar("percentageFreeOverScanned", cell_free/(cell_free + cell_busy));
+            recordScalar("percentageBusyOverScanned", cell_busy/(cell_free + cell_busy));
+            recordScalar("percentageFalsePositive", n_falsePos_alarms/(cell_free + cell_busy));
+            recordScalar("percentageFalseNegative", n_falseNeg_alarms/(cell_free + cell_busy));
+        }
+        recordScalar("percentageFree", cell_free/tot_cell);
+        recordScalar("percentageBusy", cell_busy/tot_cell);
 
         recordScalar("freeCells", cell_free);
         recordScalar("unknownCells", cell_unknown);
@@ -840,8 +1049,8 @@ void USVControl::finish(void) {
         recordScalar("totScans", n_tot);
     }
 
-    if (true) {
-        //make the report
+    if (false) {
+        //make the report FOR each node
         char buff[8];
         snprintf(buff, sizeof(buff), "%d", this->getParentModule()->getIndex());
 
@@ -862,6 +1071,7 @@ void USVControl::finish(void) {
         if (f_grid_alpha) fclose(f_grid_alpha);
     }
 
+    /*
     //if (this->getParentModule()->getIndex() == 0) {
     if (false) {
 
@@ -996,6 +1206,7 @@ void USVControl::finish(void) {
         recordScalar("busyScans", n_busy);
         recordScalar("totScans", n_tot);
     }
+    */
 }
 
 } /* namespace inet */

@@ -105,6 +105,8 @@ protected:
     void addScanOnApproximatedMap(PointScan *ps);
     void updateShadowingMap(void);
 
+    void makeOnlineStats(void);
+
     virtual void receiveSignal(cComponent *source, simsignal_t signalID, double d) override;
 
 public:
@@ -155,6 +157,22 @@ private:
 
     cMessage *isScanningTimer;
     simtime_t scanningTime;
+
+    cMessage *statisticsTimer;
+    simtime_t statisticsTime;
+
+    // stats variable only for onlone stats
+    std::vector< std::vector< CellScanReport *> > online_gridReportMatrix;
+    std::list<CellScanReport> online_gridReportList;
+
+    //STAT vectors
+    cOutVector free_cells_percentage;
+    cOutVector freeOverScanned_cells_percentage;
+    cOutVector busy_cells_percentage;
+    cOutVector busyOverScanned_cells_percentage;
+    cOutVector scanned_cells_percentage;
+    cOutVector falsePositive_cells_percentage;
+    cOutVector falseNegative_cells_percentage;
 
     std::vector< std::vector<PointMapSignalCharacteristics> > signalPropMap;
     Coord signalMapOffset;

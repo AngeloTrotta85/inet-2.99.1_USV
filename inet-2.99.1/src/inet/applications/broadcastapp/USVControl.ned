@@ -30,6 +30,7 @@ simple USVControl
     string outputCellsScanReport;							// output file name for the cells report
     double sigmaMultiplierInTxRangeCalculation = default(2); // multiplier for the sigma in range calculation
     double radiusApproximatedMap = default(25);		// radius for 
+    double statisticsTime @unit(s) = default (5s);	// time for the vector statistics
     
     @display("i=misc/joystick");
 }
