@@ -33,6 +33,9 @@ simple FieldForceMobility extends MovingMobilityBase
         double initialZ @unit(m) = default(uniform(this.constraintAreaMinZ, this.constraintAreaMaxZ));
         bool initFromDisplayString = default(true);
         
+        bool towardsNotExploredMapMovement = default (false);			// movement towards not explored area
+        double choosenPointTimeValidity @unit(s) = default (150s);		// time step to choose another point
+        
         bool randomMovement = default (false);			// random movement
         volatile double randomStepTimeChange @unit(s) = default(20s); // frequency of changing force angle (can be random)
         double weigthRandomMovement = default (10);		// weigth of the movement force
@@ -42,6 +45,8 @@ simple FieldForceMobility extends MovingMobilityBase
         double volatileTimeExponentialDecay = default(0.001);
         double repulsiveForceWeight = default(10);
         double repulsiveDecay = default(0.005);
+        
+        bool repulsiveForceFromScannedPoints = default(true);	// flag to add repulsive forces on scanned points
         
         double maxspeed @unit(mps) = default(5mps); // max speed of the host
         double maxacceleration = default(1); // max acceleration of linear motion (m/s2)

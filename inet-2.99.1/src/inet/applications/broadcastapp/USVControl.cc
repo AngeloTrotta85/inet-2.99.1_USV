@@ -239,8 +239,8 @@ bool USVControl::checkIfScan(void) {
 
     maxForce = -1;
 
-    fprintf(stderr, "Sono %02d - checkIfScan - MYscannedPoints: %02d - OTHERSscannedPoints:%02d\n",
-            this->getParentModule()->getIndex(), (int) scannedPoints.size(), (int) scannedPoints_fromOthers.size()); fflush(stderr);
+    //fprintf(stderr, "Sono %02d - checkIfScan - MYscannedPoints: %02d - OTHERSscannedPoints:%02d\n",
+    //        this->getParentModule()->getIndex(), (int) scannedPoints.size(), (int) scannedPoints_fromOthers.size()); fflush(stderr);
 
     for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
         PointScan *ps = &(*it);
@@ -456,7 +456,7 @@ void USVControl::updateMobilityPointsParameters(void) {
 
         double decade_factor = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
 
-        ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->pos, defaultRepulsiveWeigth, decade_factor);
+        ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->scanningHostAddr, ps->pos, defaultRepulsiveWeigth, decade_factor);
     }
 
     for (std::list<PointScan>::iterator it = scannedPoints.begin(); it != scannedPoints.end(); it++) {
@@ -464,7 +464,7 @@ void USVControl::updateMobilityPointsParameters(void) {
 
         double decade_factor = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
 
-        ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->pos, defaultRepulsiveWeigth, decade_factor);
+        ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->scanningHostAddr, ps->pos, defaultRepulsiveWeigth, decade_factor);
     }
 }
 
@@ -878,6 +878,8 @@ void USVControl::finish(void) {
         FILE *f_grid_falsePositiveList = fopen(fn_grid_falsePositiveList.c_str(), "w");
         FILE *f_grid_falseNegativeList = fopen(fn_grid_falseNegativeList.c_str(), "w");
 
+        double sum_scan_per_cell;
+        sum_scan_per_cell = 0;
 
         double cell_free, cell_busy, cell_unknown, tot_cell, n_falseNeg_alarms, n_falsePos_alarms;
         cell_free = cell_busy = cell_unknown = tot_cell = n_falseNeg_alarms = n_falsePos_alarms = 0;
@@ -945,6 +947,9 @@ void USVControl::finish(void) {
                     if (f_grid_scan) fprintf(f_grid_scan, "%s ", gridReportMatrix[x][y]->scanReport ? "1" : "0");
                     if (f_grid_calc) fprintf(f_grid_calc, "%s ", gridReportMatrix[x][y]->calculateReport ? "1" : "0");
                     //fprintf(stderr, "[%s] ", gridPointsMatrix[x][y].scanReport ? "1" : "0");fflush(stderr);
+
+                    sum_scan_per_cell += gridReportMatrix[x][y]->listPoints.size();
+
                     if (gridReportMatrix[x][y]->scanReport) {
                         cell_busy++;
                     } else {
@@ -1017,11 +1022,15 @@ void USVControl::finish(void) {
         if ((cell_free + cell_busy) > 0) {
             recordScalar("percentageFreeOverScanned", cell_free/(cell_free + cell_busy));
             recordScalar("percentageBusyOverScanned", cell_busy/(cell_free + cell_busy));
-            recordScalar("percentageFalsePositive", n_falsePos_alarms/(cell_free + cell_busy));
-            recordScalar("percentageFalseNegative", n_falseNeg_alarms/(cell_free + cell_busy));
+            recordScalar("percentageFalsePositiveOverScanned", n_falsePos_alarms/(cell_free + cell_busy));
+            recordScalar("percentageFalseNegativeOverScanned", n_falseNeg_alarms/(cell_free + cell_busy));
+            recordScalar("scanPerCellAverageOverScanned", sum_scan_per_cell/(cell_free + cell_busy));
         }
         recordScalar("percentageFree", cell_free/tot_cell);
         recordScalar("percentageBusy", cell_busy/tot_cell);
+        recordScalar("percentageFalsePositive", n_falsePos_alarms/tot_cell);
+        recordScalar("percentageFalseNegative", n_falseNeg_alarms/tot_cell);
+        recordScalar("scanPerCellAverage", sum_scan_per_cell/tot_cell);
 
         recordScalar("freeCells", cell_free);
         recordScalar("unknownCells", cell_unknown);

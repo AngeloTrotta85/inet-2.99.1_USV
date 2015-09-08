@@ -30,7 +30,10 @@ FieldForceMobility::FieldForceMobility()
     exploringForce = Coord::ZERO;
     debugRandomRepulsivePoints = 0;
 
-    idxRPL = 10000;
+    lastChoosenPoint = Coord::NIL;
+    nextChoosenPoint_timestamp = simTime();
+
+    idxRPL = 0;
 }
 
 void FieldForceMobility::initialize(int stage)
@@ -47,6 +50,11 @@ void FieldForceMobility::initialize(int stage)
         defaultVolatileTimeDecay = par("volatileTimeExponentialDecay").doubleValue();
         defaultRepulsiveForceWeight = par("repulsiveForceWeight").doubleValue();
         defaultRepulsiveDecay = par("repulsiveDecay").doubleValue();
+
+        repulsiveForceFromScannedPoints = par("repulsiveForceFromScannedPoints").boolValue();
+
+        towardsNotExploredMapMovement = par("towardsNotExploredMapMovement").boolValue();
+        choosenPointTimeValidity = par("choosenPointTimeValidity");
 
         randomMovement = par("randomMovement").boolValue();
         weigthRandomMovement = par("weigthRandomMovement").doubleValue();
@@ -78,7 +86,7 @@ void FieldForceMobility::initialize(int stage)
 
             EV << "Repulsive point " << i << ": " << rp.position << endl;
 
-            repulsivePointsList[idxRPL++] = rp;
+            repulsivePointsList[std::make_pair(-1, idxRPL++)] = rp;
         }
     }
 }
@@ -141,7 +149,10 @@ void FieldForceMobility::updateFieldForce(void) {
     force = Coord::ZERO;
 
     //Add node exploring-force ************************************************************
-    if (randomMovement) {
+    if (towardsNotExploredMapMovement) {
+        force += getExploreForceTowardsNotExploredMap();
+    }
+    else if (randomMovement) {
         if (nextRandomChangeTime <= simTime()) {
             EV << "RANDOMIZING exploring force" << endl;
             if (lastPosition.x < (constraintAreaMin.x + 10)) {
@@ -218,59 +229,139 @@ void FieldForceMobility::updateFieldForce(void) {
     //*********************************************************************************************
     //END Add node exploring-force ************************************************************
 
+    if (repulsiveForceFromScannedPoints) {
 
+        //Add volatile repulsive-force ************************************************************
+        Coord volRepulsiveSum = Coord::ZERO;
 
-    //Add volatile repulsive-force ************************************************************
-    Coord volRepulsiveSum = Coord::ZERO;
+        for (std::map<unsigned int, repulsive_point_t>::iterator it = volatileRepulsivePointsList.begin(); it != volatileRepulsivePointsList.end(); it++) {
+            repulsive_point_t *actP = &(it->second);
 
-    for (std::map<unsigned int, repulsive_point_t>::iterator it = volatileRepulsivePointsList.begin(); it != volatileRepulsivePointsList.end(); it++) {
-        repulsive_point_t *actP = &(it->second);
+            Coord actForce = calcRepulsiveForceTimeDecade(actP, defaultVolatileTimeDecay);
 
-        Coord actForce = calcRepulsiveForceTimeDecade(actP, defaultVolatileTimeDecay);
+            volRepulsiveSum += actForce;
+        }
 
-        volRepulsiveSum += actForce;
-    }
+        //erase the useless volatile values
+        for (std::map<unsigned int, repulsive_point_t>::iterator it = volatileRepulsivePointsList.begin(); it != volatileRepulsivePointsList.end(); it++) {
+            repulsive_point_t *actP = &(it->second);
 
-    //erase the useless volatile values
-    for (std::map<unsigned int, repulsive_point_t>::iterator it = volatileRepulsivePointsList.begin(); it != volatileRepulsivePointsList.end(); it++) {
-        repulsive_point_t *actP = &(it->second);
+            Coord actForce = calcRepulsiveForceTimeDecade(actP, defaultVolatileTimeDecay);
 
-        Coord actForce = calcRepulsiveForceTimeDecade(actP, defaultVolatileTimeDecay);
+            if (actForce.length() < 0.001) {
+                volatileRepulsivePointsList.erase(it);
 
-        if (actForce.length() < 0.001) {
-            volatileRepulsivePointsList.erase(it);
-
-            //restart from the beginning
-            it = volatileRepulsivePointsList.begin();
-            if (it == volatileRepulsivePointsList.end()) {
-                break;
+                //restart from the beginning
+                it = volatileRepulsivePointsList.begin();
+                if (it == volatileRepulsivePointsList.end()) {
+                    break;
+                }
             }
         }
+
+        EV << "Adding volatile repulsive forces sum: " << volRepulsiveSum << endl;
+        force += volRepulsiveSum;
+        //*********************************************************************************************
+        //END Add volatile repulsive-force ************************************************************
+
+
+        // Add repulsive forces ************************************************************
+        Coord repulsiveSum = Coord::ZERO;
+
+        for (std::map<std::pair<int, unsigned int>, repulsive_point_t>::iterator it = repulsivePointsList.begin(); it != repulsivePointsList.end(); it++) {
+            repulsive_point_t *actP = &(it->second);
+
+            Coord actForce = calcRepulsiveForce(actP);
+
+            //EV << "Repulsive force from " << actP->position << " to me at " << lastPosition << " is " << actForce << endl;
+
+            repulsiveSum += actForce;
+        }
+        EV << "Adding repulsive forces sum: " << repulsiveSum << endl;
+
+        force += repulsiveSum;
+        //*********************************************************************************************
+        // END Add repulsive forces ************************************************************
+
+    }
+}
+
+
+bool compare_lessExplored (const std::pair<Coord, double>& first, const std::pair<Coord, double>& second) {
+    return (first.second < second.second);
+}
+
+Coord FieldForceMobility::getExploreForceTowardsNotExploredMap(void) {
+    Coord ris = Coord::ZERO;
+
+    if (    (lastChoosenPoint == Coord::NIL) ||
+            (simTime() > nextChoosenPoint_timestamp) ||
+            (lastChoosenPoint.distance(lastPosition) < 5) ){
+
+        std::list<std::pair<Coord, double>> possible_choice;
+        int number_of_choice = 20;
+        int choice_idx;
+
+        for (int i = 0; i < number_of_choice; i++) {
+            Coord random_coord;
+            Coord random_coord_explored_force;
+
+            random_coord = Coord(   (dblrand() * (constraintAreaMax.x - constraintAreaMin.x)) + constraintAreaMin.x,
+                                    (dblrand() * (constraintAreaMax.y - constraintAreaMin.y)) + constraintAreaMin.y);
+
+            random_coord_explored_force = Coord::ZERO;
+            for (std::map<std::pair<int, unsigned int>, repulsive_point_t>::iterator itRP = repulsivePointsList.begin(); itRP != repulsivePointsList.end(); itRP++) {
+                repulsive_point_t *actP = &(itRP->second);
+                Coord actForce = calcRepulsiveForceOnAPoint(random_coord, actP);
+                random_coord_explored_force += actForce;
+            }
+
+            possible_choice.push_back(std::make_pair(random_coord, random_coord_explored_force.length()));
+        }
+
+        possible_choice.sort(compare_lessExplored);
+
+        choice_idx = (int) (truncnormal(0.0, number_of_choice/4.0));
+
+        //fprintf(stderr, "Choosing index %d\n", choice_idx); fflush(stderr);
+
+        if (choice_idx >= number_of_choice) choice_idx = 0;
+
+        std::list<std::pair<Coord, double>>::iterator it = possible_choice.begin();
+        for (int i = 0; i < choice_idx; i++) {
+            it++;
+        }
+        lastChoosenPoint = it->first;
+
+        nextChoosenPoint_timestamp = simTime() + truncnormal(choosenPointTimeValidity, choosenPointTimeValidity / 10.0);
     }
 
-    EV << "Adding volatile repulsive forces sum: " << volRepulsiveSum << endl;
-    force += volRepulsiveSum;
-    //*********************************************************************************************
-    //END Add volatile repulsive-force ************************************************************
+    ris = lastChoosenPoint - lastPosition;
+    ris.normalize();
+    ris *= weigthRandomMovement;
 
+    return ris;
+}
 
-    // Add repulsive forces ************************************************************
-    Coord repulsiveSum = Coord::ZERO;
+Coord FieldForceMobility::calcRepulsiveForceOnAPoint(Coord refPoint, repulsive_point_t *rp) {
+    Coord ris = refPoint - rp->position;
+    double field;
 
-    for (std::map<unsigned int, repulsive_point_t>::iterator it = repulsivePointsList.begin(); it != repulsivePointsList.end(); it++) {
-        repulsive_point_t *actP = &(it->second);
-
-        Coord actForce = calcRepulsiveForce(actP);
-
-        //EV << "Repulsive force from " << actP->position << " to me at " << lastPosition << " is " << actForce << endl;
-
-        repulsiveSum += actForce;
+    //double field = rp->weight * exp(-(rp->decade_factor * lastPosition.distance(rp->position)));
+    //double sq_distance = pow(lastPosition.x - rp->position.x, 2.0) + pow(lastPosition.y - rp->position.y, 2.0);
+    if (refPoint == rp->position) {
+        ris = Coord(dblrand() - 0.5, dblrand() - 0.5);
+        field = rp->weight;
     }
-    EV << "Adding repulsive forces sum: " << repulsiveSum << endl;
+    else {
+        double sq_distance = refPoint.sqrdist(rp->position);
+        field = rp->weight * exp(-(rp->decade_factor * sq_distance));
+    }
 
-    force += repulsiveSum;
-    //*********************************************************************************************
-    // END Add repulsive forces ************************************************************
+    ris.normalize();
+    ris *= field;
+
+    return ris;
 }
 
 Coord FieldForceMobility::calcRepulsiveForce(repulsive_point_t *rp) {
@@ -309,7 +400,7 @@ Coord FieldForceMobility::calcRepulsiveForceTimeDecade(repulsive_point_t *rp, do
     return ris;
 }
 
-void FieldForceMobility::addPersistentRepulsiveForce(unsigned int id, const Coord& pos, double weight, double decade_factor) {
+void FieldForceMobility::addPersistentRepulsiveForce(unsigned int id, int hostAddr, const Coord& pos, double weight, double decade_factor) {
     repulsive_point_t rp;
 
     rp.timestamp = simTime();
@@ -317,11 +408,11 @@ void FieldForceMobility::addPersistentRepulsiveForce(unsigned int id, const Coor
     rp.weight = weight;
     rp.position = pos;
 
-    repulsivePointsList[id] = rp;
+    repulsivePointsList[std::make_pair(hostAddr, id)] = rp;
 }
 
-void FieldForceMobility::addPersistentRepulsiveForce(unsigned int id, const Coord& pos) {
-    addPersistentRepulsiveForce(id, pos, defaultRepulsiveForceWeight, defaultRepulsiveDecay);
+void FieldForceMobility::addPersistentRepulsiveForce(unsigned int id, int hostAddr,  const Coord& pos) {
+    addPersistentRepulsiveForce(id, hostAddr, pos, defaultRepulsiveForceWeight, defaultRepulsiveDecay);
 }
 
 void FieldForceMobility::setVolatileRepulsiveForce(unsigned int addr, const Coord& pos, double weight, double decade_factor) {

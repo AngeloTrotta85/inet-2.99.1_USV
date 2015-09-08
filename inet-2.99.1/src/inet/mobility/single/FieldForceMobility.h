@@ -47,6 +47,11 @@ protected:
     double maxspeed;    ///< maximum speed of the host
     double maxacceleration;    ///< acceleration of linear motion
 
+    bool towardsNotExploredMapMovement;
+    Coord lastChoosenPoint;
+    simtime_t nextChoosenPoint_timestamp;
+    double choosenPointTimeValidity;
+
     bool randomMovement;
     double weigthRandomMovement;
     simtime_t nextRandomChangeTime;
@@ -64,12 +69,15 @@ protected:
 
     Coord exploringForce;
     unsigned int idxRPL;
-    std::map<unsigned int, repulsive_point_t> repulsivePointsList;
+    //std::map<unsigned int, repulsive_point_t> repulsivePointsList;
+    std::map< std::pair<int, unsigned int>, repulsive_point_t> repulsivePointsList;
     std::map<unsigned int, repulsive_point_t> volatileRepulsivePointsList;
 
     USVControl *usv_control;
 
     bool forced_stop;
+
+    bool repulsiveForceFromScannedPoints;
 
 protected:
   virtual int numInitStages() const override { return NUM_INIT_STAGES; }
@@ -88,8 +96,8 @@ public:
 
   void setExploringForce(const Coord& exploringForce) { this->exploringForce = exploringForce; }
 
-  void addPersistentRepulsiveForce(unsigned int id, const Coord& pos, double weight, double decade_factor);
-  void addPersistentRepulsiveForce(unsigned int id, const Coord& pos);
+  void addPersistentRepulsiveForce(unsigned int id, int hostAddr, const Coord& pos, double weight, double decade_factor);
+  void addPersistentRepulsiveForce(unsigned int id, int hostAddr, const Coord& pos);
 
   void setVolatileRepulsiveForce(unsigned int addr, const Coord& pos, double weight, double decade_factor);
   void setVolatileRepulsiveForce(unsigned int addr, const Coord& pos);
@@ -99,7 +107,10 @@ public:
 private:
   void updateFieldForce(void);
   Coord calcRepulsiveForce(repulsive_point_t *rp);
+  Coord calcRepulsiveForceOnAPoint(Coord refPoint, repulsive_point_t *rp);
   Coord calcRepulsiveForceTimeDecade(repulsive_point_t *rp, double timeDecateFac);
+
+  Coord getExploreForceTowardsNotExploredMap(void);
 };
 
 } /* namespace inet */
