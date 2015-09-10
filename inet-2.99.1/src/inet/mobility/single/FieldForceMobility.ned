@@ -35,6 +35,7 @@ simple FieldForceMobility extends MovingMobilityBase
         
         bool towardsNotExploredMapMovement = default (false);			// movement towards not explored area
         double choosenPointTimeValidity @unit(s) = default (150s);		// time step to choose another point
+        int numberOfChoices = default(20);								// number of choices for the exploring
         
         bool randomMovement = default (false);			// random movement
         volatile double randomStepTimeChange @unit(s) = default(20s); // frequency of changing force angle (can be random)

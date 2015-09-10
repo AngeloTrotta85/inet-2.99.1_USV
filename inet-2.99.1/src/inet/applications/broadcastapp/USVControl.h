@@ -103,7 +103,6 @@ protected:
     void drawScannedPoint(Coord position, bool isBusy);
 
     void addScanOnApproximatedMap(PointScan *ps);
-    void updateShadowingMap(void);
 
     void makeOnlineStats(void);
 
@@ -121,6 +120,7 @@ public:
 
 protected:
     std::list<PointScan> scannedPoints;
+    std::vector< std::vector<PointMapSignalCharacteristics> > signalPropMap;
 
 private:
 
@@ -138,6 +138,8 @@ private:
     double sizeOfScenaioReportCells;
 
     double radiusApproximatedMap;
+
+    double otherScanToSendProbability;
 
     int pktGenerated;
     unsigned int scanningID_idx;
@@ -174,7 +176,7 @@ private:
     cOutVector falsePositive_cells_percentage;
     cOutVector falseNegative_cells_percentage;
 
-    std::vector< std::vector<PointMapSignalCharacteristics> > signalPropMap;
+
     Coord signalMapOffset;
 
     //std::vector< std::vector<std::list <PointScan> > > approximatedPropMap;

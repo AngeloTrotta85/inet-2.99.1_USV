@@ -55,6 +55,8 @@ void FieldForceMobility::initialize(int stage)
 
         towardsNotExploredMapMovement = par("towardsNotExploredMapMovement").boolValue();
         choosenPointTimeValidity = par("choosenPointTimeValidity");
+        numberOfChoices = par("numberOfChoices");
+        if (numberOfChoices < 1) numberOfChoices = 1;
 
         randomMovement = par("randomMovement").boolValue();
         weigthRandomMovement = par("weigthRandomMovement").doubleValue();
@@ -66,6 +68,8 @@ void FieldForceMobility::initialize(int stage)
         usv_control = dynamic_cast <USVControl *> (this->getParentModule()->getSubmodule("usv_brain"));
 
         forced_stop = false;
+
+        nextCalcForce = simTime();
 
         //WATCH_LIST(repulsivePointsList);
         WATCH(exploringForce);
@@ -98,7 +102,12 @@ void FieldForceMobility::move()
         lastSpeed = Coord::ZERO;
     }
     else {
-        updateFieldForce();
+
+        if (simTime() >= nextCalcForce) {
+            updateFieldForce();
+
+            nextCalcForce = simTime() + (0.5 + dblrand());
+        }
 
         if (force != Coord::ZERO) {
 
@@ -299,39 +308,90 @@ Coord FieldForceMobility::getExploreForceTowardsNotExploredMap(void) {
             (lastChoosenPoint.distance(lastPosition) < 5) ){
 
         std::list<std::pair<Coord, double>> possible_choice;
-        int number_of_choice = 20;
         int choice_idx;
 
-        for (int i = 0; i < number_of_choice; i++) {
+        for (int i = 0; i < numberOfChoices; i++) {
             Coord random_coord;
-            Coord random_coord_explored_force;
+            //Coord random_coord_explored_force = Coord::ZERO;
+            double random_coord_explored_force_SIZE = 0;
+            double random_coord_explored_force_COUNT = 0;
 
             random_coord = Coord(   (dblrand() * (constraintAreaMax.x - constraintAreaMin.x)) + constraintAreaMin.x,
                                     (dblrand() * (constraintAreaMax.y - constraintAreaMin.y)) + constraintAreaMin.y);
 
-            random_coord_explored_force = Coord::ZERO;
+            //fprintf(stderr, "Sono %d sono in [%lf:%lf] e voglio andare a [%lf, %lf]\n",
+            //        this->getParentModule()->getIndex(), lastPosition.x, lastPosition.y, random_coord.x, random_coord.y); fflush(stderr);
+
+            // calculate the force on the destination point
             for (std::map<std::pair<int, unsigned int>, repulsive_point_t>::iterator itRP = repulsivePointsList.begin(); itRP != repulsivePointsList.end(); itRP++) {
                 repulsive_point_t *actP = &(itRP->second);
+
                 Coord actForce = calcRepulsiveForceOnAPoint(random_coord, actP);
-                random_coord_explored_force += actForce;
+                //random_coord_explored_force += actForce;
+                random_coord_explored_force_SIZE += actForce.length();
+                random_coord_explored_force_COUNT++;
             }
 
-            possible_choice.push_back(std::make_pair(random_coord, random_coord_explored_force.length()));
+            //fprintf(stderr, "Forza al punto di destinazione: %lf\n", random_coord_explored_force_SIZE); fflush(stderr);
+
+            /****** TRY ALSO ON THE PATH ************************/
+            /*******************************************************************/
+            // calculate the force on the path
+            double step_size_on_path = 20;
+            int n_points_on_path = random_coord.distance(lastPosition) / step_size_on_path;
+
+            Coord step_on_path = random_coord - lastPosition;
+            step_on_path.normalize();
+            step_on_path *= step_size_on_path;
+
+            //fprintf(stderr, "Faccio %d passi di dimensione %lf con step [%lf:%lf - %lfm]\n",
+            //        n_points_on_path, step_size_on_path, step_on_path.x, step_on_path.y, step_on_path.length()); fflush(stderr);
+
+            Coord p_on_path = lastPosition + step_on_path;
+            for (int jj = 0; jj < n_points_on_path; jj++){
+                // calculate the force on the point on the path
+                //Coord force_at_point = Coord::ZERO;
+                double force_at_point_SIZE = 0;
+
+                for (std::map<std::pair<int, unsigned int>, repulsive_point_t>::iterator itRP = repulsivePointsList.begin(); itRP != repulsivePointsList.end(); itRP++) {
+                    repulsive_point_t *actP = &(itRP->second);
+
+                    Coord actForce = calcRepulsiveForceOnAPoint(p_on_path, actP);
+
+                    //force_at_point += actForce;
+                    //random_coord_explored_force += actForce;
+                    force_at_point_SIZE += actForce.length();
+                }
+
+                //fprintf(stderr, "Forza al punto di [%lf:%lf]: %lf\n",
+                //        p_on_path.x, p_on_path.y, force_at_point_SIZE); fflush(stderr);
+                //random_coord_explored_force += force_at_point;
+                random_coord_explored_force_SIZE += force_at_point_SIZE;
+                random_coord_explored_force_COUNT++;
+
+                p_on_path += step_on_path;
+            }
+            //fprintf(stderr, "Forza finale per [%lf, %lf]: %lf\n",
+            //        random_coord.x, random_coord.y, random_coord_explored_force_SIZE); fflush(stderr);
+            /*******************************************************************/
+
+            //possible_choice.push_back(std::make_pair(random_coord, random_coord_explored_force.length()));
+            possible_choice.push_back(std::make_pair(random_coord, random_coord_explored_force_SIZE/random_coord_explored_force_COUNT));
         }
 
         possible_choice.sort(compare_lessExplored);
 
-        choice_idx = (int) (truncnormal(0.0, number_of_choice/4.0));
+        choice_idx = (int) (truncnormal(0.0, MIN(numberOfChoices/5.0, 1)));
 
-        //fprintf(stderr, "Choosing index %d\n", choice_idx); fflush(stderr);
-
-        if (choice_idx >= number_of_choice) choice_idx = 0;
+        if (choice_idx >= numberOfChoices) choice_idx = 0;
 
         std::list<std::pair<Coord, double>>::iterator it = possible_choice.begin();
         for (int i = 0; i < choice_idx; i++) {
             it++;
         }
         lastChoosenPoint = it->first;
+
+        //fprintf(stderr, "Choosing index %d with destination point [%lf:%lf]\n\n", choice_idx, lastChoosenPoint.x, lastChoosenPoint.y); fflush(stderr);
 
         nextChoosenPoint_timestamp = simTime() + truncnormal(choosenPointTimeValidity, choosenPointTimeValidity / 10.0);
     }

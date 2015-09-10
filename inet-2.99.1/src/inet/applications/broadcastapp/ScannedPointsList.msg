@@ -32,6 +32,7 @@ struct ScannedPoint {
         simtime_t timestamp;
        	double watt_read;
         bool decisionMade;
+        int scannerAddr;
         //double weight;
         //double decade_factor;
 };
@@ -46,4 +47,5 @@ packet ScannedPointsList
     int nodeAddr;
     Coord nodePosition;
     ScannedPoint scanPoints[];
+    ScannedPoint scanPoints_fromOthers[];
 }

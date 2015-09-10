@@ -51,6 +51,7 @@ protected:
     Coord lastChoosenPoint;
     simtime_t nextChoosenPoint_timestamp;
     double choosenPointTimeValidity;
+    int numberOfChoices;
 
     bool randomMovement;
     double weigthRandomMovement;
@@ -78,6 +79,8 @@ protected:
     bool forced_stop;
 
     bool repulsiveForceFromScannedPoints;
+
+    simtime_t nextCalcForce;
 
 protected:
   virtual int numInitStages() const override { return NUM_INIT_STAGES; }
