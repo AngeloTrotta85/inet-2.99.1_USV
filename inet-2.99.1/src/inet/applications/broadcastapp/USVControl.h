@@ -70,6 +70,8 @@ public:
     typedef struct CellScanReport_s{
         std::list<PointScan> listPoints;
         bool scanReport;
+        int numOfOccupiedScan;
+        int numOfFreeScan;
         bool calculateReport;
     } CellScanReport;
 
@@ -140,6 +142,8 @@ private:
     double radiusApproximatedMap;
 
     double otherScanToSendProbability;
+
+    int k_over_n;
 
     int pktGenerated;
     unsigned int scanningID_idx;

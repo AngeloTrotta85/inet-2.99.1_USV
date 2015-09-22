@@ -31,7 +31,8 @@ simple USVControl
     double sigmaMultiplierInTxRangeCalculation = default(2); // multiplier for the sigma in range calculation
     double radiusApproximatedMap = default(25);		// radius for 
     double statisticsTime @unit(s) = default (5s);	// time for the vector statistics
-    double otherScanToSendProbability = default (0.3)	// [0, 1] probability to send a scanning made by others nodes
+    double otherScanToSendProbability = default (0.3);	// [0, 1] probability to send a scanning made by others nodes
+    int k_over_n = default(1);			// k over n rule (1=OR, 0=AND, 2..=k-over-n)
     
     @display("i=misc/joystick");
 }

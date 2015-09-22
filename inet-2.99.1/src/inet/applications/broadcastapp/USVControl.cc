@@ -51,6 +51,7 @@ void USVControl::initialize(int stage) {
         radiusApproximatedMap = par("radiusApproximatedMap");
         statisticsTime = par("statisticsTime");
         otherScanToSendProbability = par("otherScanToSendProbability");
+        k_over_n = par("k_over_n");
 
         //scanPowerThreshold = W(par("scanPowerThreshold").doubleValue());
         scanPowerThreshold_dBm = par("scanPowerThreshold");
@@ -844,6 +845,8 @@ void USVControl::finish(void) {
 
                     newCellRep.scanReport = false;
                     newCellRep.calculateReport = false;
+                    newCellRep.numOfOccupiedScan = 0;
+                    newCellRep.numOfFreeScan = 0;
 
                     gridReportList.push_back(newCellRep);
                     gridReportMatrix[x][y] = &gridReportList.back();
@@ -980,19 +983,34 @@ void USVControl::finish(void) {
                 for (std::list<PointScan>::iterator it = gridReportMatrix[x][y]->listPoints.begin(); it != gridReportMatrix[x][y]->listPoints.end(); it++) {
                     PointScan *ps = &(*it);
                     if (ps->scanLog.actualResult) {
-                        gridReportMatrix[x][y]->scanReport = true;
+                        //gridReportMatrix[x][y]->scanReport = true;
+                        gridReportMatrix[x][y]->numOfOccupiedScan++;
                         this_cell_scan_busy++;
 
                         //break;
                     }
                     else {
                         this_cell_scan_free++;
+                        gridReportMatrix[x][y]->numOfFreeScan++;
                     }
 
                     if (ps->scanLog.calculatedResult) {
                         gridReportMatrix[x][y]->calculateReport = true;
 
                         //break;
+                    }
+                }
+
+                if (gridReportMatrix[x][y]->numOfOccupiedScan > 0) {
+                    if (k_over_n <= 0) {
+                        if (gridReportMatrix[x][y]->numOfFreeScan == 0) {
+                            gridReportMatrix[x][y]->scanReport = true;      //n_over_n rule. ALL POSITIVE SCAN
+                        }
+                    }
+                    else {
+                        if (gridReportMatrix[x][y]->numOfOccupiedScan >= k_over_n) {
+                            gridReportMatrix[x][y]->scanReport = true;      //k_over_n rule. AT LEAST K POSITIVE SCAN
+                        }
                     }
                 }
 
