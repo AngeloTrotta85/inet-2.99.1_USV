@@ -411,13 +411,16 @@ bool USVControl::calcIfInRangeTransm(bool scan_result_debug, W resScan_debug) {
 }
 
 double USVControl::calculateUncorrelatedDistanceFromAlpha(double alpha) {
-    //TODO faccio semplice, da modificare
+
     double alpha_tmp = alpha;
     // faccio una proporzione per cui urban=8(alpha>=5), suburban=500(alpha<=2)
     if (alpha_tmp < 2) alpha_tmp = 2;
     if (alpha_tmp > 5) alpha_tmp = 5;
 
-    return (((alpha_tmp - 2.0) / (5.0 - 2.0)) * (8.0 - 50.0)) + 50.0;   //uscito dalla retta passante per 2 punti (2,50)-(5,8)
+    //TODO faccio semplice, da modificare
+    //return (((alpha_tmp - 2.0) / (5.0 - 2.0)) * (8.0 - 50.0)) + 50.0;   //uscito dalla retta passante per 2 punti (2,50)-(5,8)
+
+    return ((500.0 - 8.0) * exp(-2.0 * (alpha_tmp - 2.0))) + 8;         // curva discendente che passa per (2,50)-(5,8) (5,8)~quasi
 }
 
 double USVControl::calculateUncorrelatedDistance(Coord point) {

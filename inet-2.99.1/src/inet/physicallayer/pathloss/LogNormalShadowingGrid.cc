@@ -309,6 +309,12 @@ double LogNormalShadowingGrid::computePathLossGrid(mps propagationSpeed, Hz freq
         grid_sigmaMax = grid_sigmaTx;
     }
 
+    // TODO trick to enhance 2.4 communications
+    if (frequency > Hz(2300000000)) {
+        grid_alphaMax = grid_alphaMax / 2.0;
+        if (grid_alphaMax < 2) grid_alphaMax = 2.0;
+    }
+
     return computePathLoss_parametric(propagationSpeed, frequency, distance, grid_alphaMax, grid_sigmaMax);
 }
 
