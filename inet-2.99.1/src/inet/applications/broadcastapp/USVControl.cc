@@ -918,6 +918,7 @@ void USVControl::finish(void) {
         //std::string fn_grid_alpha = filename_output_grid + std::string("_alpha");
         //std::string fn_grid_gridalpha = filename_output_grid + std::string("_gridalpha");
         std::string fn_grid_scan = filename_output_grid + std::string("_scan");
+        std::string fn_grid_nscan = filename_output_grid + std::string("_nscan");
         std::string fn_grid_calc = filename_output_grid + std::string("_calc");
         std::string fn_grid_diff = filename_output_grid + std::string("_diff");
         std::string fn_grid_color = filename_output_grid + std::string("_color");
@@ -928,6 +929,7 @@ void USVControl::finish(void) {
         FILE *f_grid_alpha = nullptr; // = fopen(fn_grid_alpha.c_str(), "w");
         FILE *f_grid_gridalpha = nullptr; // = fopen(fn_grid_gridalpha.c_str(), "w");
         FILE *f_grid_scan = fopen(fn_grid_scan.c_str(), "w");
+        FILE *f_grid_nscan = fopen(fn_grid_nscan.c_str(), "w");
         FILE *f_grid_calc = fopen(fn_grid_calc.c_str(), "w");
         FILE *f_grid_diff = fopen(fn_grid_diff.c_str(), "w");
         FILE *f_grid_color = fopen(fn_grid_color.c_str(), "w");
@@ -1014,6 +1016,8 @@ void USVControl::finish(void) {
                     }
                 }
 
+                if (f_grid_nscan) fprintf(f_grid_nscan, "%02d ", ((int) gridReportMatrix[x][y]->listPoints.size()));
+
                 if (gridReportMatrix[x][y]->listPoints.size() > 0){
                     if (f_grid_scan) fprintf(f_grid_scan, "%s ", gridReportMatrix[x][y]->scanReport ? "1" : "0");
                     if (f_grid_calc) fprintf(f_grid_calc, "%s ", gridReportMatrix[x][y]->calculateReport ? "1" : "0");
@@ -1065,6 +1069,7 @@ void USVControl::finish(void) {
 
             if (f_grid_gridalpha) fprintf(f_grid_gridalpha, "\n");
             if (f_grid_scan) fprintf(f_grid_scan, "\n");
+            if (f_grid_nscan) fprintf(f_grid_nscan, "\n");
             if (f_grid_calc) fprintf(f_grid_calc, "\n");
             if (f_grid_diff) fprintf(f_grid_diff, "\n");
             if (f_grid_color) fprintf(f_grid_color, "\n");
@@ -1084,6 +1089,7 @@ void USVControl::finish(void) {
         if (f_grid_alpha) fclose(f_grid_alpha);
         if (f_grid_gridalpha) fclose(f_grid_gridalpha);
         if (f_grid_scan) fclose(f_grid_scan);
+        if (f_grid_nscan) fclose(f_grid_nscan);
         if (f_grid_calc) fclose(f_grid_calc);
         if (f_grid_diff) fclose(f_grid_diff);
         if (f_grid_color) fclose(f_grid_color);
