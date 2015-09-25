@@ -802,6 +802,17 @@ void USVControl::makeOnlineStats(void) {
     scanned_cells_percentage.record((cell_free + cell_busy) / tot_cell);
 }
 
+double USVControl::calcPointQuality(int numScans, double decorr_distance) {
+    double ris = 0;
+    double deltad = log(decorr_distance) / 2.0;
+
+    if (numScans > 0) {
+        ris = (deltad * log(numScans)) + 1.0;
+    }
+
+    return ris;
+}
+
 void USVControl::finish(void) {
     if (this->getParentModule()->getIndex() == 0) {
 
@@ -922,6 +933,7 @@ void USVControl::finish(void) {
         std::string fn_grid_calc = filename_output_grid + std::string("_calc");
         std::string fn_grid_diff = filename_output_grid + std::string("_diff");
         std::string fn_grid_color = filename_output_grid + std::string("_color");
+        std::string fn_grid_quality = filename_output_grid + std::string("_quality");
         std::string fn_grid_falsePositiveList = filename_output_grid + std::string("_FP_list");
         std::string fn_grid_falseNegativeList = filename_output_grid + std::string("_FN_list");
         std::list<std::pair<int, CellScanReport *>> grid_color_list;
@@ -933,11 +945,14 @@ void USVControl::finish(void) {
         FILE *f_grid_calc = fopen(fn_grid_calc.c_str(), "w");
         FILE *f_grid_diff = fopen(fn_grid_diff.c_str(), "w");
         FILE *f_grid_color = fopen(fn_grid_color.c_str(), "w");
+        FILE *f_grid_quality = fopen(fn_grid_quality.c_str(), "w");
         FILE *f_grid_falsePositiveList = fopen(fn_grid_falsePositiveList.c_str(), "w");
         FILE *f_grid_falseNegativeList = fopen(fn_grid_falseNegativeList.c_str(), "w");
 
         double sum_scan_per_cell;
         sum_scan_per_cell = 0;
+
+        double quality_sum = 0;
 
         double cell_free, cell_busy, cell_unknown, tot_cell, n_falseNeg_alarms, n_falsePos_alarms;
         cell_free = cell_busy = cell_unknown = tot_cell = n_falseNeg_alarms = n_falsePos_alarms = 0;
@@ -1016,6 +1031,16 @@ void USVControl::finish(void) {
                     }
                 }
 
+                double alpha, sigma, decorr_dist, quality_here;
+                int xp = (x * cellMinSize) + (cellMinSize/2);
+                int yp = (y * cellMinSize) + (cellMinSize/2);
+                pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
+                decorr_dist = calculateUncorrelatedDistanceFromAlpha(alpha);
+                quality_here = calcPointQuality(gridReportMatrix[x][y]->listPoints.size(), decorr_dist);
+                quality_sum += quality_here;
+
+                if (f_grid_quality)  fprintf(f_grid_quality, "%lf ", quality_here);
+
                 if (f_grid_nscan) fprintf(f_grid_nscan, "%02d ", ((int) gridReportMatrix[x][y]->listPoints.size()));
 
                 if (gridReportMatrix[x][y]->listPoints.size() > 0){
@@ -1093,6 +1118,7 @@ void USVControl::finish(void) {
         if (f_grid_calc) fclose(f_grid_calc);
         if (f_grid_diff) fclose(f_grid_diff);
         if (f_grid_color) fclose(f_grid_color);
+        if (f_grid_quality) fclose(f_grid_quality);
         if (f_grid_falsePositiveList) fclose(f_grid_falsePositiveList);
         if (f_grid_falseNegativeList) fclose(f_grid_falseNegativeList);
 
@@ -1114,6 +1140,8 @@ void USVControl::finish(void) {
         recordScalar("busyCells", cell_busy);
         recordScalar("totCells", tot_cell);
         recordScalar("percentageCellScan", (cell_free + cell_busy) / tot_cell);
+
+        recordScalar("qualityIndexAverage", quality_sum / tot_cell);
 
         // scan percentage
         int n_busy, n_free, n_tot;

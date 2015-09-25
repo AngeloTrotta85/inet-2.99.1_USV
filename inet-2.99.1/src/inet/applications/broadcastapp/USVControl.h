@@ -108,6 +108,8 @@ protected:
 
     void makeOnlineStats(void);
 
+    double calcPointQuality(int numScans, double decorr_distance);
+
     virtual void receiveSignal(cComponent *source, simsignal_t signalID, double d) override;
 
 public:
