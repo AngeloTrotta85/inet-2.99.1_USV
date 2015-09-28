@@ -816,7 +816,7 @@ double USVControl::calcPointQuality(int numScans, double decorr_distance) {
 void USVControl::finish(void) {
     if (this->getParentModule()->getIndex() == 0) {
 
-        double cellMinSize = CELL_MIN_SIZE;
+        double cellMinSize = sizeOfScenaioReportCells;
 
         std::list<PointScan> fullList;
         int numberOfNodes = this->getParentModule()->getParentModule()->par("numHosts");
