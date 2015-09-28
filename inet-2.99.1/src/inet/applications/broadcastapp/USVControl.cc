@@ -882,6 +882,10 @@ void USVControl::finish(void) {
                             int yp0_next = (y * cellMinSize) + (cellMinSize/2);
                             pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp0_next), alpha_next, sigma_next);
 
+                            fprintf(stderr, "[%u,%u]--[%u,%u] - AlphaORIG: %lf; AlphaCheck: %lf; DistanceX: %i; DistanceY: %i; DistLIMIT: %lf\n",
+                                    x, y, xnext, ynext, alpha, alpha_next, abs(xp_next - xp), abs(yp0_next - yp), dist); fflush(stderr);
+
+
                             if (    ((abs(xp_next - xp)) < dist) &&
                                     (fabs(alpha_next - alpha) < CELL_ALPHA_DIFF_OFFSET)  ) {
 
