@@ -876,6 +876,9 @@ void USVControl::finish(void) {
                         double alpha_next, sigma_next;
                         unsigned int ynext = y;
 
+                        if (xnext == x) ynext = y+1;
+                        if (ynext >= gridReportMatrix[xnext].size()) continue;
+
                         if (gridReportMatrix[xnext][ynext] == nullptr) {
 
                             int xp_next = (xnext * cellMinSize) + (cellMinSize/2);
