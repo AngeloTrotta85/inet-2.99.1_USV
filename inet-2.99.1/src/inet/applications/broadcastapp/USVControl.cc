@@ -869,8 +869,8 @@ void USVControl::finish(void) {
 
                     dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
 
-                    //fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position [%i %i]\n",
-                    //        dist, alpha, xp, yp);
+                    fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position [%i %i]\n",
+                            dist, alpha, xp, yp);fflush(stderr);
 
                     for (unsigned int xnext = x; xnext < gridReportMatrix.size(); xnext++) {
                         double alpha_next, sigma_next;
