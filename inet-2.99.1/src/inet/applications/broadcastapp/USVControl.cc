@@ -1097,6 +1097,7 @@ void USVControl::finish(void) {
             if (f_grid_nscan) fprintf(f_grid_nscan, "\n");
             if (f_grid_calc) fprintf(f_grid_calc, "\n");
             if (f_grid_diff) fprintf(f_grid_diff, "\n");
+            if (f_grid_quality) fprintf(f_grid_quality, "\n");
             if (f_grid_color) fprintf(f_grid_color, "\n");
             //fprintf(stderr, "\n");fflush(stderr);
         }
