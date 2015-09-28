@@ -18,9 +18,8 @@
 #include "inet/environment/common/PhysicalEnvironment.h"
 
 
-#define CELL_MIN_SIZE 25                //TODO 25 is a magic number! (to make at least 3 uncorrelated scanning in urban environment)
-#define CELL_ALPHA_DIFF_OFFSET 0.3      //TODO 0.5 = magic number (offset in alpha to consider the cell of the same alpha)
-
+//#define CELL_MIN_SIZE 25                //TODO 25 is a magic number! (to make at least 3 uncorrelated scanning in urban environment)
+//#define CELL_ALPHA_DIFF_OFFSET 0.3      //TODO 0.5 = magic number (offset in alpha to consider the cell of the same alpha)
 
 namespace inet {
 
@@ -51,6 +50,7 @@ void USVControl::initialize(int stage) {
         radiusApproximatedMap = par("radiusApproximatedMap");
         statisticsTime = par("statisticsTime");
         otherScanToSendProbability = par("otherScanToSendProbability");
+        alphaOffsetDiffCell = par("alphaOffsetDiffCell");
         k_over_n = par("k_over_n");
 
         //scanPowerThreshold = W(par("scanPowerThreshold").doubleValue());
@@ -146,7 +146,7 @@ void USVControl::initialize(int stage) {
             statisticsTimer = new cMessage("statisticMsg");
             scheduleAt(simTime() + statisticsTime, statisticsTimer);
 
-            double cellMinSize = CELL_MIN_SIZE;
+            double cellMinSize = sizeOfScenaioReportCells;
 
             online_gridReportMatrix.resize((ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x - 1) / cellMinSize);     //'-1' is to avoid a cell of size 1
             for (unsigned int x = 0; x < online_gridReportMatrix.size(); x++) {
@@ -192,7 +192,7 @@ void USVControl::initialize(int stage) {
 
                                     if (    ((abs(xp_next - xp)) < dist) &&
                                             ((abs(yp_next - yp)) < dist) &&
-                                            (fabs(alpha_next - alpha) < CELL_ALPHA_DIFF_OFFSET)  ) {
+                                            (fabs(alpha_next - alpha) < alphaOffsetDiffCell)  ) {
                                         online_gridReportMatrix[xnext][ynext] = online_gridReportMatrix[x][y];
                                     }
                                     else {
@@ -729,7 +729,7 @@ void USVControl::makeOnlineStats(void) {
     // here there is only node0
     int numberOfNodes = this->getParentModule()->getParentModule()->par("numHosts");
 
-    double cellMinSize = CELL_MIN_SIZE;
+    double cellMinSize = sizeOfScenaioReportCells;
 
     for (unsigned int x = 0; x < online_gridReportMatrix.size(); x++) {
         for (unsigned int y = 0; y < online_gridReportMatrix[x].size(); y++) {
@@ -863,8 +863,8 @@ void USVControl::finish(void) {
                     gridReportMatrix[x][y] = &gridReportList.back();
 
                     double alpha, sigma, dist;
-                    int xp = (x * cellMinSize) + (cellMinSize/2);
-                    int yp = (y * cellMinSize) + (cellMinSize/2);
+                    int xp = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
+                    int yp = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + (cellMinSize/2);
                     pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
 
                     dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
@@ -881,8 +881,8 @@ void USVControl::finish(void) {
 
                         if (gridReportMatrix[xnext][ynext] == nullptr) {
 
-                            int xp_next = (xnext * cellMinSize) + (cellMinSize/2);
-                            int yp0_next = (ynext * cellMinSize) + (cellMinSize/2);
+                            int xp_next = ffmob->getConstraintAreaMin().x + (xnext * cellMinSize) + (cellMinSize/2);
+                            int yp0_next = ffmob->getConstraintAreaMin().y + (ynext * cellMinSize) + (cellMinSize/2);
                             pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp0_next), alpha_next, sigma_next);
 
                             fprintf(stderr, "[%u,%u]--[%u,%u] - AlphaORIG: %lf; AlphaCheck: %lf; DistanceX: %i; DistanceY: %i; DistLIMIT: %lf\n",
@@ -890,7 +890,7 @@ void USVControl::finish(void) {
 
 
                             if (    ((abs(xp_next - xp)) < dist) &&
-                                    (fabs(alpha_next - alpha) < CELL_ALPHA_DIFF_OFFSET)  ) {
+                                    (fabs(alpha_next - alpha) < alphaOffsetDiffCell)  ) {
 
                                 for ( ; ynext < gridReportMatrix[xnext].size(); ynext++) {
                                     if (gridReportMatrix[xnext][ynext] == nullptr) {
@@ -900,8 +900,6 @@ void USVControl::finish(void) {
 
                                         fprintf(stderr, "[%u,%u]--[%u,%u] - AlphaORIG: %lf; AlphaCheck: %lf; DistanceX: %i; DistanceY: %i; DistLIMIT: %lf\n",
                                                 x, y, xnext, ynext, alpha, alpha_next, abs(xp_next - xp), abs(yp_next - yp), dist); fflush(stderr);
-                                        fprintf(stdout, "[%u,%u]--[%u,%u] - AlphaORIG: %lf; AlphaCheck: %lf; DistanceX: %i; DistanceY: %i; DistLIMIT: %lf\n",
-                                                x, y, xnext, ynext, alpha, alpha_next, abs(xp_next - xp), abs(yp_next - yp), dist); fflush(stdout);
 
                                         if (    ((abs(yp_next - yp)) < dist) &&
                                                 (fabs(alpha_next - alpha) < CELL_ALPHA_DIFF_OFFSET)  ) {

@@ -140,6 +140,7 @@ private:
     std::list<PointScan> scannedPoints_fromOthers;
 
     double sizeOfScenaioReportCells;
+    double alphaOffsetDiffCell;
 
     double radiusApproximatedMap;
 
