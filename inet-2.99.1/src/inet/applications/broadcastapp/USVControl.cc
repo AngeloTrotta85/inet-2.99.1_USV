@@ -902,7 +902,7 @@ void USVControl::finish(void) {
                                                 x, y, xnext, ynext, alpha, alpha_next, abs(xp_next - xp), abs(yp_next - yp), dist); fflush(stderr);
 
                                         if (    ((abs(yp_next - yp)) < dist) &&
-                                                (fabs(alpha_next - alpha) < CELL_ALPHA_DIFF_OFFSET)  ) {
+                                                (fabs(alpha_next - alpha) < alphaOffsetDiffCell)  ) {
                                             gridReportMatrix[xnext][ynext] = gridReportMatrix[x][y];
                                         }
                                         else {
