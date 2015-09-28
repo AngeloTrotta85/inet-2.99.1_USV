@@ -869,8 +869,8 @@ void USVControl::finish(void) {
 
                     dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
 
-                    fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position [%i %i]\n",
-                            dist, alpha, xp, yp);fflush(stderr);
+                    fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position (%i %i)->[%i %i]\n",
+                            dist, alpha, x, y, xp, yp);fflush(stderr);
 
                     for (unsigned int xnext = x; xnext < gridReportMatrix.size(); xnext++) {
                         double alpha_next, sigma_next;
@@ -882,7 +882,7 @@ void USVControl::finish(void) {
                         if (gridReportMatrix[xnext][ynext] == nullptr) {
 
                             int xp_next = (xnext * cellMinSize) + (cellMinSize/2);
-                            int yp0_next = (y * cellMinSize) + (cellMinSize/2);
+                            int yp0_next = (ynext * cellMinSize) + (cellMinSize/2);
                             pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp0_next), alpha_next, sigma_next);
 
                             fprintf(stderr, "[%u,%u]--[%u,%u] - AlphaORIG: %lf; AlphaCheck: %lf; DistanceX: %i; DistanceY: %i; DistLIMIT: %lf\n",
@@ -892,9 +892,8 @@ void USVControl::finish(void) {
                             if (    ((abs(xp_next - xp)) < dist) &&
                                     (fabs(alpha_next - alpha) < CELL_ALPHA_DIFF_OFFSET)  ) {
 
-                                for (ynext = y; ynext < gridReportMatrix[xnext].size(); ynext++) {
+                                for ( ; ynext < gridReportMatrix[xnext].size(); ynext++) {
                                     if (gridReportMatrix[xnext][ynext] == nullptr) {
-
 
                                         int yp_next = (ynext * cellMinSize) + (cellMinSize/2);
                                         pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp_next), alpha_next, sigma_next);
