@@ -1038,12 +1038,11 @@ void USVControl::finish(void) {
                     gridReportList.push_back(newCellRep);
                     gridReportMatrix[x][y] = &gridReportList.back();
 
-                    double alpha, sigma, dist;
+                    double alpha, dist;
                     int xp = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
                     int yp = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + (cellMinSize/2);
                     //pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
                     alpha = signalPropMapALL[xp][yp].pathloss_alpha;
-                    sigma = signalPropMapALL[xp][yp].lognormal_sigma;
 
                     dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * ALPHA_MULT_FOR_RADIUS) + 1.0;
                     std::list<std::pair<unsigned int, unsigned int>> qq;
@@ -1063,7 +1062,7 @@ void USVControl::finish(void) {
                     }
 
                     while (!qq.empty()){
-                        double alpha_next, sigma_next;
+                        double alpha_next;
                         unsigned int x_act, y_act;
                         x_act = qq.front().first;
                         y_act = qq.front().second;
@@ -1073,7 +1072,6 @@ void USVControl::finish(void) {
                         int yp_next = ffmob->getConstraintAreaMin().y + (y_act * cellMinSize) + (cellMinSize/2);
                         //pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp_next), alpha_next, sigma_next);
                         alpha_next = signalPropMapALL[xp_next][yp_next].pathloss_alpha;
-                        sigma_next = signalPropMapALL[xp_next][yp_next].lognormal_sigma;
 
                         if (    (Coord(xp, yp).distance(Coord(xp_next, yp_next)) < dist) &&
                                 (fabs(alpha_next - alpha) < alphaOffsetDiffCell)  ) {
@@ -1228,7 +1226,7 @@ void USVControl::finish(void) {
         std::string fn_grid_falseNegativeList = filename_output_grid + std::string("_FN_list");
         std::list<std::pair<int, CellScanReport *>> grid_color_list;
 
-        FILE *f_grid_alpha = nullptr; // = fopen(fn_grid_alpha.c_str(), "w");
+        //FILE *f_grid_alpha = nullptr; // = fopen(fn_grid_alpha.c_str(), "w");
         FILE *f_grid_gridalpha = nullptr; // = fopen(fn_grid_gridalpha.c_str(), "w");
         FILE *f_grid_scan = fopen(fn_grid_scan.c_str(), "w");
         FILE *f_grid_nscan = fopen(fn_grid_nscan.c_str(), "w");
@@ -1392,7 +1390,7 @@ void USVControl::finish(void) {
             //fprintf(stderr, "\n");fflush(stderr);
         }
 
-        for (unsigned int x = 0; x < signalPropMap.size(); x++) {
+        /*for (unsigned int x = 0; x < signalPropMap.size(); x++) {
             for (unsigned int y = 0; y < signalPropMap[x].size(); y++) {
                 if (f_grid_alpha) {
                     if (signalPropMap[x][y].number_of_scans > 0)    fprintf(f_grid_alpha, "%.01lf ", signalPropMap[x][y].pathloss_alpha);
@@ -1400,9 +1398,9 @@ void USVControl::finish(void) {
                 }
             }
             if (f_grid_alpha) fprintf(f_grid_alpha, "\n");
-        }
+        }*/
 
-        if (f_grid_alpha) fclose(f_grid_alpha);
+        //if (f_grid_alpha) fclose(f_grid_alpha);
         if (f_grid_gridalpha) fclose(f_grid_gridalpha);
         if (f_grid_scan) fclose(f_grid_scan);
         if (f_grid_nscan) fclose(f_grid_nscan);
