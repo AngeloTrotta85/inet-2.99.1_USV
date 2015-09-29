@@ -101,6 +101,7 @@ protected:
     void endScanning(void);
 
     bool calcIfInRangeTransm(bool scan_result_debug, W resScan_debug);
+    bool calcIfInRangeTransmSimple(Coord point);
 
     void drawScannedPoint(Coord position, bool isBusy);
 

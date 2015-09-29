@@ -425,6 +425,36 @@ void USVControl::endScanning(void) {
     updateMobilityPointsParameters();
 }
 
+bool USVControl::calcIfInRangeTransmSimple(Coord point) {
+    bool ris = false;
+
+    cModule *tower0 = this->getParentModule()->getParentModule()->getSubmodule("tower", 0);
+
+    //EV << "calcIfInRangeTransm - " << tower0->getFullPath() << " - vectnumber: " << tower0->getVectorSize() << endl;
+
+    for (int i = 0; i < tower0->getVectorSize() ; i++) {
+        MobilityBase *txMob                                         = check_and_cast<MobilityBase *>(this->getParentModule()->getParentModule()->getSubmodule("tower", i)->getSubmodule("mobility"));
+        physicallayer::Radio *receiverRadio                         = check_and_cast<physicallayer::Radio *>(this->getParentModule()->getSubmodule("wlan", 0)->getSubmodule("radio"));
+        physicallayer::Radio *radioTX                               = check_and_cast<physicallayer::Radio *>(this->getParentModule()->getParentModule()->getSubmodule("tower", i)->getSubmodule("wlan", 0)->getSubmodule("radio"));
+        physicallayer::Ieee80211ScalarTransmitter *radioTransmitter = check_and_cast<physicallayer::Ieee80211ScalarTransmitter *>(radioTX->getSubmodule("transmitter"));
+
+        Coord receiverPos       = ffmob->getCurrentPosition();
+        Hz frequency            = radioTransmitter->getCarrierFrequency();
+        double p_tx_dBm         = math::mW2dBm(radioTX->getTransmitter()->getMaxPower().get() * 1000);
+        double sigma_mult       = sigmaMultiplierInTxRangeCalculation;
+        double threshold_dBm    = math::mW2dBm(scanPowerThreshold.get() * 1000);
+
+        m mThDist = pathLossModel->getThresholdDistance(p_tx_dBm, sigma_mult, threshold_dBm, receiverPos, receiverRadio, frequency);
+
+        if (txMob->getCurrentPosition().distance(point) <= mThDist.get()) {
+            ris = true;
+            break;
+        }
+    }
+
+    return ris;
+}
+
 bool USVControl::calcIfInRangeTransm(bool scan_result_debug, W resScan_debug) {
     bool ris = false;
 
@@ -1252,6 +1282,22 @@ void USVControl::finish(void) {
 
                 tot_cell++;
 
+                //ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
+                bool busy_calc_this_cell = false;
+                for (int ic = 0; ic < cellMinSize; ic++) {
+                    for (int jc = 0; jc < cellMinSize; jc++) {
+                        int xc = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + ic;
+                        int yc = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + jc;
+
+                        if (calcIfInRangeTransmSimple(Coord(xc, yc))) {
+                            busy_calc_this_cell = true;
+                            break;
+                        }
+                    }
+                    if (busy_calc_this_cell) break;
+                }
+                if (f_grid_calc) fprintf(f_grid_calc, "%s ", busy_calc_this_cell ? "1" : "0");
+
                 double sum_alpha = 0;
                 double count_alpha = 0;
                 int count_alpha_scan = 0;
@@ -1333,7 +1379,7 @@ void USVControl::finish(void) {
 
                 if (gridReportMatrix[x][y]->listPoints.size() > 0){
                     if (f_grid_scan) fprintf(f_grid_scan, "%s ", gridReportMatrix[x][y]->scanReport ? "1" : "0");
-                    if (f_grid_calc) fprintf(f_grid_calc, "%s ", gridReportMatrix[x][y]->calculateReport ? "1" : "0");
+                    //if (f_grid_calc) fprintf(f_grid_calc, "%s ", gridReportMatrix[x][y]->calculateReport ? "1" : "0");
                     //fprintf(stderr, "[%s] ", gridPointsMatrix[x][y].scanReport ? "1" : "0");fflush(stderr);
 
                     sum_scan_per_cell += gridReportMatrix[x][y]->listPoints.size();
@@ -1363,7 +1409,7 @@ void USVControl::finish(void) {
                 }
                 else {
                     if (f_grid_scan) fprintf(f_grid_scan, "X ");
-                    if (f_grid_calc) fprintf(f_grid_calc, "X ");
+                    //if (f_grid_calc) fprintf(f_grid_calc, "X ");
                     //fprintf(stderr, "[X] ");fflush(stderr);
                     cell_unknown++;
                 }
