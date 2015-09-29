@@ -869,6 +869,9 @@ void USVControl::finish(void) {
 
                     dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
                     std::list<std::pair<unsigned int, unsigned int>> qq;
+                    std::list<std::pair<unsigned int, unsigned int>> qq_checked;
+
+                    qq_checked.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)x, (unsigned int)y));
 
                     for (int xxx=(((int)x)-1); xxx <= (((int)x)+1); xxx++) {
                         for (int yyy=(((int)y)-1); yyy <= (((int)y)+1); yyy++) {
@@ -876,6 +879,7 @@ void USVControl::finish(void) {
                                     (yyy >= 0) && (yyy < (int)gridReportMatrix[xxx].size()) &&
                                     (gridReportMatrix[xxx][yyy] == nullptr)){
                                 qq.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                                qq_checked.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
                             }
                         }
                     }
@@ -900,7 +904,27 @@ void USVControl::finish(void) {
                                     if (    (xxx >= 0) && (xxx < (int)gridReportMatrix.size()) &&
                                             (yyy >= 0) && (yyy < (int)gridReportMatrix[xxx].size()) &&
                                             (gridReportMatrix[xxx][yyy] == nullptr)){
-                                        qq.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                                        bool trovato = false;
+                                        for (std::list<std::pair<unsigned int, unsigned int>>::iterator it = qq.begin(); it != qq.end(); it++) {
+                                            if (((int)it->first == xxx) && ((int)it->second == yyy)) {
+                                                trovato = true;
+                                                break;
+                                            }
+                                        }
+
+                                        if (!trovato) {
+                                            for (std::list<std::pair<unsigned int, unsigned int>>::iterator it = qq_checked.begin(); it != qq_checked.end(); it++) {
+                                                if (((int)it->first == xxx) && ((int)it->second == yyy)) {
+                                                    trovato = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        if (!trovato) {
+                                            qq.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                                            qq_checked.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                                        }
                                     }
                                 }
                             }
