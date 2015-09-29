@@ -20,6 +20,7 @@
 
 //#define CELL_MIN_SIZE 25                //TODO 25 is a magic number! (to make at least 3 uncorrelated scanning in urban environment)
 //#define CELL_ALPHA_DIFF_OFFSET 0.3      //TODO 0.5 = magic number (offset in alpha to consider the cell of the same alpha)
+#define ALPHA_MULT_FOR_RADIUS 2.0
 
 namespace inet {
 
@@ -164,16 +165,102 @@ void USVControl::initialize(int stage) {
 
                         newCellRep.scanReport = false;
                         newCellRep.calculateReport = false;
+                        newCellRep.numOfOccupiedScan = 0;
+                        newCellRep.numOfFreeScan = 0;
 
                         online_gridReportList.push_back(newCellRep);
                         online_gridReportMatrix[x][y] = &online_gridReportList.back();
 
                         double alpha, sigma, dist;
-                        int xp = (x * cellMinSize) + (cellMinSize/2);
-                        int yp = (y * cellMinSize) + (cellMinSize/2);
+                        int xp = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
+                        int yp = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + (cellMinSize/2);
                         pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
 
-                        dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
+                        dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * ALPHA_MULT_FOR_RADIUS) + 1.0;
+                        std::list<std::pair<unsigned int, unsigned int>> qq;
+                        std::list<std::pair<unsigned int, unsigned int>> qq_checked;
+
+                        qq_checked.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)x, (unsigned int)y));
+
+                        for (int xxx=(((int)x)-1); xxx <= (((int)x)+1); xxx++) {
+                            for (int yyy=(((int)y)-1); yyy <= (((int)y)+1); yyy++) {
+                                if (    (xxx >= 0) && (xxx < (int)online_gridReportMatrix.size()) &&
+                                        (yyy >= 0) && (yyy < (int)online_gridReportMatrix[xxx].size()) &&
+                                        (online_gridReportMatrix[xxx][yyy] == nullptr)){
+                                    qq.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                                    qq_checked.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                                }
+                            }
+                        }
+
+                        while (!qq.empty()){
+                            double alpha_next, sigma_next;
+                            unsigned int x_act, y_act;
+                            x_act = qq.front().first;
+                            y_act = qq.front().second;
+                            qq.pop_front();
+
+                            int xp_next = ffmob->getConstraintAreaMin().x + (x_act * cellMinSize) + (cellMinSize/2);
+                            int yp_next = ffmob->getConstraintAreaMin().y + (y_act * cellMinSize) + (cellMinSize/2);
+                            pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp_next), alpha_next, sigma_next);
+
+                            if (    (Coord(xp, yp).distance(Coord(xp_next, yp_next)) < dist) &&
+                                    (fabs(alpha_next - alpha) < alphaOffsetDiffCell)  ) {
+                                online_gridReportMatrix[x_act][y_act] = online_gridReportMatrix[x][y];
+
+                                for (int xxx=(((int)x_act)-1); xxx <= (((int)x_act)+1); xxx++) {
+                                    for (int yyy=(((int)y_act)-1); yyy <= (((int)y_act)+1); yyy++) {
+                                        if (    (xxx >= 0) && (xxx < (int)online_gridReportMatrix.size()) &&
+                                                (yyy >= 0) && (yyy < (int)online_gridReportMatrix[xxx].size()) &&
+                                                (online_gridReportMatrix[xxx][yyy] == nullptr)){
+                                            bool trovato = false;
+                                            for (std::list<std::pair<unsigned int, unsigned int>>::iterator it = qq.begin(); it != qq.end(); it++) {
+                                                if (((int)it->first == xxx) && ((int)it->second == yyy)) {
+                                                    trovato = true;
+                                                    break;
+                                                }
+                                            }
+
+                                            if (!trovato) {
+                                                for (std::list<std::pair<unsigned int, unsigned int>>::iterator it = qq_checked.begin(); it != qq_checked.end(); it++) {
+                                                    if (((int)it->first == xxx) && ((int)it->second == yyy)) {
+                                                        trovato = true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+
+                                            if (!trovato) {
+                                                qq.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                                                qq_checked.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            /*
+            for (unsigned int x = 0; x < online_gridReportMatrix.size(); x++) {
+                for (unsigned int y = 0; y < online_gridReportMatrix[x].size(); y++) {
+                    if (online_gridReportMatrix[x][y] == nullptr) {
+                        CellScanReport newCellRep;
+
+                        newCellRep.scanReport = false;
+                        newCellRep.calculateReport = false;
+
+                        online_gridReportList.push_back(newCellRep);
+                        online_gridReportMatrix[x][y] = &online_gridReportList.back();
+
+                        double alpha, sigma, dist;
+                        int xp = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
+                        int yp = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + (cellMinSize/2);
+                        pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
+
+                        dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * ALPHA_MULT_FOR_RADIUS) + 1.0;
 
                         //fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position [%i %i]\n",
                         //        dist, alpha, xp, yp);
@@ -208,6 +295,7 @@ void USVControl::initialize(int stage) {
                     }
                 }
             }
+            */
         }
     }
 }
@@ -822,7 +910,7 @@ void USVControl::finish(void) {
         int numberOfNodes = this->getParentModule()->getParentModule()->par("numHosts");
 
         //copy the map from the pathloss simulation module
-        std::vector< std::vector<PointMapSignalCharacteristics> > signalMap;
+        /*std::vector< std::vector<PointMapSignalCharacteristics> > signalMap;
 
         signalMap.resize((int)(ffmob->getConstraintAreaMax().x));
         for (unsigned int x = 0; x < signalMap.size(); x++) {
@@ -834,7 +922,95 @@ void USVControl::finish(void) {
                         signalMap[x][y].pathloss_alpha,
                         signalMap[x][y].lognormal_sigma);
             }
+        }*/
+
+
+        std::vector< std::vector<PointMapSignalCharacteristics> > signalPropMapALL;
+
+        signalPropMapALL.resize((int)(ffmob->getConstraintAreaMax().x));
+        //approximatedPropMap.resize((int)(ffmob->getConstraintAreaMax().x));
+        for (unsigned int x = 0; x < signalPropMapALL.size(); x++) {
+            //signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y));
+            signalPropMapALL[x].resize((int)(ffmob->getConstraintAreaMax().y));
+            //approximatedPropMap.resize((int)(ffmob->getConstraintAreaMax().y));
+
+            for (unsigned int y = 0; y < signalPropMapALL[x].size(); y++) {
+                signalPropMapALL[x][y].pathloss_alpha = 2.0;//0.0;
+                signalPropMapALL[x][y].lognormal_sigma = 1.0;
+                signalPropMapALL[x][y].number_of_scans = 0;
+            }
         }
+
+        std::string fn_grid_alpha = filename_output_grid + std::string("_alpha");
+        std::string fn_grid_alpha_orig = filename_output_grid + std::string("_alpha_orig");
+        std::string fn_grid_alpha_err = filename_output_grid + std::string("_alpha_err");
+        FILE *f_grid_alpha = fopen(fn_grid_alpha.c_str(), "w");
+        FILE *f_grid_alpha_orig = fopen(fn_grid_alpha_orig.c_str(), "w");
+        FILE *f_grid_alpha_err = fopen(fn_grid_alpha_err.c_str(), "w");
+
+        for (int i = 0; i < numberOfNodes; i++) {
+            USVControl *usvNode = check_and_cast<USVControl *>(this->getParentModule()->getParentModule()->getSubmodule("host", i)->getSubmodule("usv_brain"));
+
+            for (unsigned int x = 0; x < usvNode->signalPropMap.size(); x++) {
+                for (unsigned int y = 0; y < usvNode->signalPropMap[x].size(); y++) {
+
+                    for (int jj = 0; jj < usvNode->signalPropMap[x][y].number_of_scans; jj++) {
+
+                        if (signalPropMapALL[x][y].number_of_scans == 0) {
+                            signalPropMapALL[x][y].pathloss_alpha = usvNode->signalPropMap[x][y].pathloss_alpha;
+                        }
+                        else {
+                            signalPropMapALL[x][y].pathloss_alpha = signalPropMapALL[x][y].pathloss_alpha +
+                                    ((usvNode->signalPropMap[x][y].pathloss_alpha - signalPropMapALL[x][y].pathloss_alpha) / (((double)(signalPropMapALL[x][y].number_of_scans)) + 1.0));
+                        }
+
+                        signalPropMapALL[x][y].number_of_scans++;
+                    }
+                }
+            }
+        }
+
+        for (unsigned int x = 0; x < signalPropMapALL.size(); x++) {
+            for (unsigned int y = 0; y < signalPropMapALL[x].size(); y++) {
+                if (f_grid_alpha) {
+                    if (signalPropMapALL[x][y].number_of_scans > 0) fprintf(f_grid_alpha, "%.01lf ", signalPropMapALL[x][y].pathloss_alpha);
+                    else                                            fprintf(f_grid_alpha, "%.01lf ", 0.0);
+                }
+            }
+            if (f_grid_alpha) fprintf(f_grid_alpha, "\n");
+        }
+
+        if (f_grid_alpha_orig) {
+            for (unsigned int x = 0; x < signalPropMapALL.size(); x++) {
+                for (unsigned int y = 0; y < signalPropMapALL[x].size(); y++) {
+                    double r_alpha, r_sigma;
+                    pathLossModel->getAlphaSigmaFromAbsCoord(Coord(x, y), r_alpha, r_sigma);
+
+                    fprintf(f_grid_alpha_orig, "%.01lf ", r_alpha);
+                }
+                fprintf(f_grid_alpha_orig, "\n");
+            }
+        }
+
+        if (f_grid_alpha_err) {
+            for (unsigned int x = 0; x < signalPropMapALL.size(); x++) {
+                for (unsigned int y = 0; y < signalPropMapALL[x].size(); y++) {
+                    double r_alpha, r_sigma;
+                    pathLossModel->getAlphaSigmaFromAbsCoord(Coord(x, y), r_alpha, r_sigma);
+
+                    if (signalPropMapALL[x][y].number_of_scans > 0)
+                        fprintf(f_grid_alpha_err, "%.01lf ", fabs(signalPropMapALL[x][y].pathloss_alpha - r_alpha));
+                    else
+                        fprintf(f_grid_alpha_err, "%.01lf ", -1.0);
+
+                }
+                fprintf(f_grid_alpha_err, "\n");
+            }
+        }
+
+        if (f_grid_alpha) fclose(f_grid_alpha);
+        if (f_grid_alpha_orig) fclose(f_grid_alpha_orig);
+        if (f_grid_alpha_err) fclose(f_grid_alpha_err);
 
         // create a grid of cell-size 25x25 and a list of "CellScanReport"
         std::vector< std::vector< CellScanReport *> > gridReportMatrix;
@@ -865,9 +1041,11 @@ void USVControl::finish(void) {
                     double alpha, sigma, dist;
                     int xp = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
                     int yp = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + (cellMinSize/2);
-                    pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
+                    //pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
+                    alpha = signalPropMapALL[xp][yp].pathloss_alpha;
+                    sigma = signalPropMapALL[xp][yp].lognormal_sigma;
 
-                    dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
+                    dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * ALPHA_MULT_FOR_RADIUS) + 1.0;
                     std::list<std::pair<unsigned int, unsigned int>> qq;
                     std::list<std::pair<unsigned int, unsigned int>> qq_checked;
 
@@ -893,7 +1071,9 @@ void USVControl::finish(void) {
 
                         int xp_next = ffmob->getConstraintAreaMin().x + (x_act * cellMinSize) + (cellMinSize/2);
                         int yp_next = ffmob->getConstraintAreaMin().y + (y_act * cellMinSize) + (cellMinSize/2);
-                        pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp_next), alpha_next, sigma_next);
+                        //pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp_next), alpha_next, sigma_next);
+                        alpha_next = signalPropMapALL[xp_next][yp_next].pathloss_alpha;
+                        sigma_next = signalPropMapALL[xp_next][yp_next].lognormal_sigma;
 
                         if (    (Coord(xp, yp).distance(Coord(xp_next, yp_next)) < dist) &&
                                 (fabs(alpha_next - alpha) < alphaOffsetDiffCell)  ) {
@@ -1272,95 +1452,6 @@ void USVControl::finish(void) {
         recordScalar("freeScans", n_free);
         recordScalar("busyScans", n_busy);
         recordScalar("totScans", n_tot);
-
-
-        if (true) {
-            std::vector< std::vector<PointMapSignalCharacteristics> > signalPropMapALL;
-
-            signalPropMapALL.resize((int)(ffmob->getConstraintAreaMax().x));
-            //approximatedPropMap.resize((int)(ffmob->getConstraintAreaMax().x));
-            for (unsigned int x = 0; x < signalPropMapALL.size(); x++) {
-                //signalPropMap[x].resize((int)(ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y));
-                signalPropMapALL[x].resize((int)(ffmob->getConstraintAreaMax().y));
-                //approximatedPropMap.resize((int)(ffmob->getConstraintAreaMax().y));
-
-                for (unsigned int y = 0; y < signalPropMapALL[x].size(); y++) {
-                    signalPropMapALL[x][y].pathloss_alpha = 0.0;
-                    signalPropMapALL[x][y].number_of_scans = 0;
-                }
-            }
-
-            std::string fn_grid_alpha = filename_output_grid + std::string("_alpha");
-            std::string fn_grid_alpha_orig = filename_output_grid + std::string("_alpha_orig");
-            std::string fn_grid_alpha_err = filename_output_grid + std::string("_alpha_err");
-            FILE *f_grid_alpha = fopen(fn_grid_alpha.c_str(), "w");
-            FILE *f_grid_alpha_orig = fopen(fn_grid_alpha_orig.c_str(), "w");
-            FILE *f_grid_alpha_err = fopen(fn_grid_alpha_err.c_str(), "w");
-
-            for (int i = 0; i < numberOfNodes; i++) {
-                USVControl *usvNode = check_and_cast<USVControl *>(this->getParentModule()->getParentModule()->getSubmodule("host", i)->getSubmodule("usv_brain"));
-
-                for (unsigned int x = 0; x < usvNode->signalPropMap.size(); x++) {
-                    for (unsigned int y = 0; y < usvNode->signalPropMap[x].size(); y++) {
-
-                        for (int jj = 0; jj < usvNode->signalPropMap[x][y].number_of_scans; jj++) {
-
-                            if (signalPropMapALL[x][y].number_of_scans == 0) {
-                                signalPropMapALL[x][y].pathloss_alpha = usvNode->signalPropMap[x][y].pathloss_alpha;
-                            }
-                            else {
-                                signalPropMapALL[x][y].pathloss_alpha = signalPropMapALL[x][y].pathloss_alpha +
-                                        ((usvNode->signalPropMap[x][y].pathloss_alpha - signalPropMapALL[x][y].pathloss_alpha) / (((double)(signalPropMapALL[x][y].number_of_scans)) + 1.0));
-                            }
-
-                            signalPropMapALL[x][y].number_of_scans++;
-                        }
-                    }
-                }
-            }
-
-            for (unsigned int x = 0; x < signalPropMapALL.size(); x++) {
-                for (unsigned int y = 0; y < signalPropMapALL[x].size(); y++) {
-                    if (f_grid_alpha) {
-                        if (signalPropMapALL[x][y].number_of_scans > 0) fprintf(f_grid_alpha, "%.01lf ", signalPropMapALL[x][y].pathloss_alpha);
-                        else                                            fprintf(f_grid_alpha, "%.01lf ", 0.0);
-                    }
-                }
-                if (f_grid_alpha) fprintf(f_grid_alpha, "\n");
-            }
-
-            if (f_grid_alpha_orig) {
-                for (unsigned int x = 0; x < signalPropMapALL.size(); x++) {
-                    for (unsigned int y = 0; y < signalPropMapALL[x].size(); y++) {
-                        double r_alpha, r_sigma;
-                        pathLossModel->getAlphaSigmaFromAbsCoord(Coord(x, y), r_alpha, r_sigma);
-
-                        fprintf(f_grid_alpha_orig, "%.01lf ", r_alpha);
-                    }
-                    fprintf(f_grid_alpha_orig, "\n");
-                }
-            }
-
-            if (f_grid_alpha_err) {
-                for (unsigned int x = 0; x < signalPropMapALL.size(); x++) {
-                    for (unsigned int y = 0; y < signalPropMapALL[x].size(); y++) {
-                        double r_alpha, r_sigma;
-                        pathLossModel->getAlphaSigmaFromAbsCoord(Coord(x, y), r_alpha, r_sigma);
-
-                        if (signalPropMapALL[x][y].number_of_scans > 0)
-                            fprintf(f_grid_alpha_err, "%.01lf ", fabs(signalPropMapALL[x][y].pathloss_alpha - r_alpha));
-                        else
-                            fprintf(f_grid_alpha_err, "%.01lf ", 0.0);
-
-                    }
-                    fprintf(f_grid_alpha_err, "\n");
-                }
-            }
-
-            if (f_grid_alpha) fclose(f_grid_alpha);
-            if (f_grid_alpha_orig) fclose(f_grid_alpha_orig);
-            if (f_grid_alpha_err) fclose(f_grid_alpha_err);
-        }
     }
 
     if (true) {
