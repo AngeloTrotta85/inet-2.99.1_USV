@@ -870,8 +870,8 @@ void USVControl::finish(void) {
                     dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
                     std::list<std::pair<unsigned int, unsigned int>> qq;
 
-                    for (int xxx=(((int)xp)-1); xxx <= (((int)xp)+1); xxx++) {
-                        for (int yyy=(((int)yp)-1); yyy <= (((int)yp)+1); yyy++) {
+                    for (int xxx=(((int)x)-1); xxx <= (((int)x)+1); xxx++) {
+                        for (int yyy=(((int)y)-1); yyy <= (((int)y)+1); yyy++) {
                             if (    (xxx >= 0) && (xxx < (int)gridReportMatrix.size()) &&
                                     (yyy >= 0) && (yyy < (int)gridReportMatrix[xxx].size()) &&
                                     (gridReportMatrix[xxx][yyy] == nullptr)){
