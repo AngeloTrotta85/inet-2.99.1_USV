@@ -868,6 +868,68 @@ void USVControl::finish(void) {
                     pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
 
                     dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
+                    std::list<std::pair<unsigned int, unsigned int>> qq;
+
+                    for (int xxx=(((int)xp)-1); xxx <= (((int)xp)+1); xxx++) {
+                        for (int yyy=(((int)yp)-1); yyy <= (((int)yp)+1); yyy++) {
+                            if (    (xxx >= 0) && (xxx < (int)gridReportMatrix.size()) &&
+                                    (yyy >= 0) && (yyy < (int)gridReportMatrix[xxx].size()) &&
+                                    (gridReportMatrix[xxx][yyy] == nullptr)){
+                                qq.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                            }
+                        }
+                    }
+
+                    while (!qq.empty()){
+                        double alpha_next, sigma_next;
+                        unsigned int x_act, y_act;
+                        x_act = qq.front().first;
+                        y_act = qq.front().second;
+                        qq.pop_front();
+
+                        int xp_next = ffmob->getConstraintAreaMin().x + (x_act * cellMinSize) + (cellMinSize/2);
+                        int yp_next = ffmob->getConstraintAreaMin().y + (y_act * cellMinSize) + (cellMinSize/2);
+                        pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp_next, yp_next), alpha_next, sigma_next);
+
+                        if (    (Coord(xp, yp).distance(Coord(xp_next, yp_next)) < dist) &&
+                                (fabs(alpha_next - alpha) < alphaOffsetDiffCell)  ) {
+                            gridReportMatrix[x_act][y_act] = gridReportMatrix[x][y];
+
+                            for (int xxx=(((int)x_act)-1); xxx <= (((int)x_act)+1); xxx++) {
+                                for (int yyy=(((int)y_act)-1); yyy <= (((int)y_act)+1); yyy++) {
+                                    if (    (xxx >= 0) && (xxx < (int)gridReportMatrix.size()) &&
+                                            (yyy >= 0) && (yyy < (int)gridReportMatrix[xxx].size()) &&
+                                            (gridReportMatrix[xxx][yyy] == nullptr)){
+                                        qq.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /*
+        for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
+            for (unsigned int y = 0; y < gridReportMatrix[x].size(); y++) {
+                if (gridReportMatrix[x][y] == nullptr) {
+                    CellScanReport newCellRep;
+
+                    newCellRep.scanReport = false;
+                    newCellRep.calculateReport = false;
+                    newCellRep.numOfOccupiedScan = 0;
+                    newCellRep.numOfFreeScan = 0;
+
+                    gridReportList.push_back(newCellRep);
+                    gridReportMatrix[x][y] = &gridReportList.back();
+
+                    double alpha, sigma, dist;
+                    int xp = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
+                    int yp = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + (cellMinSize/2);
+                    pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
+
+                    dist = (calculateUncorrelatedDistanceFromAlpha(alpha) * 3.0) + 1.0;
 
                     fprintf(stderr, "Distance to make different cells: %lf with alpha: %lf in position (%i %i)->[%i %i]\n",
                             dist, alpha, x, y, xp, yp);fflush(stderr);
@@ -925,6 +987,7 @@ void USVControl::finish(void) {
                 }
             }
         }
+        */
 
 
         /*for (unsigned int x = 0; x < gridReportMatrix.size(); x++) {
