@@ -186,6 +186,7 @@ void USVControl::initialize(int stage) {
                             for (int yyy=(((int)y)-1); yyy <= (((int)y)+1); yyy++) {
                                 if (    (xxx >= 0) && (xxx < (int)online_gridReportMatrix.size()) &&
                                         (yyy >= 0) && (yyy < (int)online_gridReportMatrix[xxx].size()) &&
+                                        ((xxx == (int)x) || (yyy == (int)y)) &&
                                         (online_gridReportMatrix[xxx][yyy] == nullptr)){
                                     qq.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
                                     qq_checked.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
@@ -212,6 +213,7 @@ void USVControl::initialize(int stage) {
                                     for (int yyy=(((int)y_act)-1); yyy <= (((int)y_act)+1); yyy++) {
                                         if (    (xxx >= 0) && (xxx < (int)online_gridReportMatrix.size()) &&
                                                 (yyy >= 0) && (yyy < (int)online_gridReportMatrix[xxx].size()) &&
+                                                ((xxx == (int)x_act) || (yyy == (int)y_act)) &&
                                                 (online_gridReportMatrix[xxx][yyy] == nullptr)){
                                             bool trovato = false;
                                             for (std::list<std::pair<unsigned int, unsigned int>>::iterator it = qq.begin(); it != qq.end(); it++) {
@@ -1084,6 +1086,7 @@ void USVControl::finish(void) {
                         for (int yyy=(((int)y)-1); yyy <= (((int)y)+1); yyy++) {
                             if (    (xxx >= 0) && (xxx < (int)gridReportMatrix.size()) &&
                                     (yyy >= 0) && (yyy < (int)gridReportMatrix[xxx].size()) &&
+                                    ((xxx == (int)x) || (yyy == (int)y)) &&
                                     (gridReportMatrix[xxx][yyy] == nullptr)){
                                 qq.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
                                 qq_checked.push_back(std::make_pair<unsigned int, unsigned int>((unsigned int)xxx, (unsigned int)yyy));
@@ -1111,6 +1114,7 @@ void USVControl::finish(void) {
                                 for (int yyy=(((int)y_act)-1); yyy <= (((int)y_act)+1); yyy++) {
                                     if (    (xxx >= 0) && (xxx < (int)gridReportMatrix.size()) &&
                                             (yyy >= 0) && (yyy < (int)gridReportMatrix[xxx].size()) &&
+                                            ((xxx == (int)x_act) || (yyy == (int)y_act)) &&
                                             (gridReportMatrix[xxx][yyy] == nullptr)){
                                         bool trovato = false;
                                         for (std::list<std::pair<unsigned int, unsigned int>>::iterator it = qq.begin(); it != qq.end(); it++) {
