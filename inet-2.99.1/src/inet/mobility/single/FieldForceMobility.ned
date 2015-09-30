@@ -39,7 +39,7 @@ simple FieldForceMobility extends MovingMobilityBase
         
         bool randomMovement = default (false);			// random movement
         volatile double randomStepTimeChange @unit(s) = default(20s); // frequency of changing force angle (can be random)
-        double weigthRandomMovement = default (10);		// weigth of the movement force
+        double weigthRandomMovement = default (20);		// weigth of the movement force
         
         int debugRandomRepulsivePoints = default(0);	// define a random number of repulsive force (for debug)
         
