@@ -314,6 +314,7 @@ Coord FieldForceMobility::getExploreForceTowardsNotExploredMap(void) {
             Coord random_coord;
             //Coord random_coord_explored_force = Coord::ZERO;
             double random_coord_explored_force_SIZE = 0;
+            double max_random_coord_explored_force_SIZE = 0;
             double random_coord_explored_force_COUNT = 0;
 
             random_coord = Coord(   (dblrand() * (constraintAreaMax.x - constraintAreaMin.x)) + constraintAreaMin.x,
@@ -329,6 +330,7 @@ Coord FieldForceMobility::getExploreForceTowardsNotExploredMap(void) {
                 Coord actForce = calcRepulsiveForceOnAPoint(random_coord, actP);
                 //random_coord_explored_force += actForce;
                 random_coord_explored_force_SIZE += actForce.length();
+                max_random_coord_explored_force_SIZE += actForce.length();
                 random_coord_explored_force_COUNT++;
             }
 
@@ -352,6 +354,7 @@ Coord FieldForceMobility::getExploreForceTowardsNotExploredMap(void) {
                 // calculate the force on the point on the path
                 //Coord force_at_point = Coord::ZERO;
                 double force_at_point_SIZE = 0;
+                double max_force_at_point_SIZE = 0;
 
                 for (std::map<std::pair<int, unsigned int>, repulsive_point_t>::iterator itRP = repulsivePointsList.begin(); itRP != repulsivePointsList.end(); itRP++) {
                     repulsive_point_t *actP = &(itRP->second);
@@ -361,12 +364,14 @@ Coord FieldForceMobility::getExploreForceTowardsNotExploredMap(void) {
                     //force_at_point += actForce;
                     //random_coord_explored_force += actForce;
                     force_at_point_SIZE += actForce.length();
+                    if (actForce.length() > max_force_at_point_SIZE) max_force_at_point_SIZE = actForce.length();
                 }
 
                 //fprintf(stderr, "Forza al punto di [%lf:%lf]: %lf\n",
                 //        p_on_path.x, p_on_path.y, force_at_point_SIZE); fflush(stderr);
                 //random_coord_explored_force += force_at_point;
                 random_coord_explored_force_SIZE += force_at_point_SIZE;
+                max_random_coord_explored_force_SIZE += max_force_at_point_SIZE;
                 random_coord_explored_force_COUNT++;
 
                 p_on_path += step_on_path;
@@ -376,7 +381,8 @@ Coord FieldForceMobility::getExploreForceTowardsNotExploredMap(void) {
             /*******************************************************************/
 
             //possible_choice.push_back(std::make_pair(random_coord, random_coord_explored_force.length()));
-            possible_choice.push_back(std::make_pair(random_coord, random_coord_explored_force_SIZE/random_coord_explored_force_COUNT));
+            //possible_choice.push_back(std::make_pair(random_coord, random_coord_explored_force_SIZE/random_coord_explored_force_COUNT));
+            possible_choice.push_back(std::make_pair(random_coord, max_random_coord_explored_force_SIZE/random_coord_explored_force_COUNT));
         }
 
         possible_choice.sort(compare_lessExplored);
