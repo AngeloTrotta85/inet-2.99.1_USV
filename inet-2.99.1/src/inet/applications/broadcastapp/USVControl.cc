@@ -105,6 +105,7 @@ void USVControl::initialize(int stage) {
         scanned_cells_percentage.setName("Scanned-cells percentage");
         falsePositive_cells_percentage.setName("FalsePositive-cells percentage");
         falseNegative_cells_percentage.setName("FalseNegative-cells percentage");
+        qualityIndexAverageVec.setName("QualityIndex Average");
 
         WATCH_LIST(scannedPoints_fromOthers);
         WATCH_LIST(scannedPoints);
@@ -877,6 +878,8 @@ void USVControl::makeOnlineStats(void) {
     double cell_free, cell_busy, cell_unknown, tot_cell, n_falseNeg_alarms, n_falsePos_alarms;
     cell_free = cell_busy = cell_unknown = tot_cell = n_falseNeg_alarms = n_falsePos_alarms = 0;
 
+    double quality_sum = 0;
+
     for (unsigned int x = 0; x < online_gridReportMatrix.size(); x++) {
         for (unsigned int y = 0; y < online_gridReportMatrix[x].size(); y++) {
             tot_cell++;
@@ -908,6 +911,14 @@ void USVControl::makeOnlineStats(void) {
             else {
                 cell_unknown++;
             }
+
+            double alpha, sigma, decorr_dist, quality_here;
+            int xp = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
+            int yp = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + (cellMinSize/2);
+            pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
+            decorr_dist = calculateUncorrelatedDistanceFromAlpha(alpha);
+            quality_here = calcPointQuality(online_gridReportMatrix[x][y]->listPoints.size(), decorr_dist);
+            quality_sum += quality_here;
         }
     }
 
@@ -920,6 +931,8 @@ void USVControl::makeOnlineStats(void) {
     free_cells_percentage.record(cell_free/tot_cell);
     busy_cells_percentage.record(cell_busy/tot_cell);
     scanned_cells_percentage.record((cell_free + cell_busy) / tot_cell);
+
+    qualityIndexAverageVec.record(quality_sum / tot_cell);
 }
 
 double USVControl::calcPointQuality(int numScans, double decorr_distance) {
@@ -1370,8 +1383,8 @@ void USVControl::finish(void) {
                 }
 
                 double alpha, sigma, decorr_dist, quality_here;
-                int xp = (x * cellMinSize) + (cellMinSize/2);
-                int yp = (y * cellMinSize) + (cellMinSize/2);
+                int xp = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
+                int yp = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + (cellMinSize/2);
                 pathLossModel->getAlphaSigmaFromAbsCoord(Coord(xp, yp), alpha, sigma);
                 decorr_dist = calculateUncorrelatedDistanceFromAlpha(alpha);
                 quality_here = calcPointQuality(gridReportMatrix[x][y]->listPoints.size(), decorr_dist);

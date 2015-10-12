@@ -183,6 +183,7 @@ private:
     cOutVector scanned_cells_percentage;
     cOutVector falsePositive_cells_percentage;
     cOutVector falseNegative_cells_percentage;
+    cOutVector qualityIndexAverageVec;
 
 
     Coord signalMapOffset;
