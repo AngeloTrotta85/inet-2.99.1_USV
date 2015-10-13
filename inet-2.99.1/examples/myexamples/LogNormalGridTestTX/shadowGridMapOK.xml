@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+	<shadowCell cardinality="NW" exponent="2" variance="1.87">
+		<shadowCell cardinality="NW" exponent="2" variance="1.87">
+			<shadowCell cardinality="NW" exponent="2.4" variance="1.87" />
+			<shadowCell cardinality="NE" exponent="3" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="3.1" variance="2.07" />
+			<shadowCell cardinality="SE" exponent="2" variance="1.47">
+				<shadowCell cardinality="NW" exponent="4" variance="1.87" />
+				<shadowCell cardinality="NE" exponent="4.2" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="3.9" variance="2.07" />
+				<shadowCell cardinality="SE" exponent="4.1" variance="1.47" />
+			</shadowCell>
+		</shadowCell>
+		<shadowCell cardinality="NE" exponent="2" variance="1.87">
+			<shadowCell cardinality="NW" exponent="3.1" variance="2.87" />
+			<shadowCell cardinality="NE" exponent="2.4" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="3.3" variance="1.07" />
+			<shadowCell cardinality="SE" exponent="2.5" variance="2.27" />
+		</shadowCell>
+		<shadowCell cardinality="SW" exponent="2" variance="3.07">
+			<shadowCell cardinality="NW" exponent="2.9" variance="1.87" />
+			<shadowCell cardinality="NE" exponent="3.2" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="2.2" variance="1.07" />
+			<shadowCell cardinality="SE" exponent="2.4" variance="1.47" />
+		</shadowCell>
+		<shadowCell cardinality="SE" exponent="2" variance="2.47">
+			<shadowCell cardinality="NW" exponent="3.1" variance="1.87" />
+			<shadowCell cardinality="NE" exponent="2.8" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="2.9" variance="2.07" />
+			<shadowCell cardinality="SE" exponent="3" variance="1.47" />
+		</shadowCell>
+	</shadowCell>
+	<shadowCell cardinality="NE" exponent="2" variance="1.87">
+		<shadowCell cardinality="NW" exponent="3.2" variance="1.87">
+			<shadowCell cardinality="NW" exponent="3" variance="1.87" />
+			<shadowCell cardinality="NE" exponent="2.9" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="3.2" variance="2.07" />
+			<shadowCell cardinality="SE" exponent="2.5" variance="1.47">
+				<shadowCell cardinality="NW" exponent="4" variance="2.87" />
+				<shadowCell cardinality="NE" exponent="4.1" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="3.9" variance="1.07" />
+				<shadowCell cardinality="SE" exponent="4.9" variance="2.47" />
+			</shadowCell>
+		</shadowCell>
+		<shadowCell cardinality="NE" exponent="4" variance="1.87">
+			<shadowCell cardinality="NW" exponent="3" variance="1.87" />
+			<shadowCell cardinality="NE" exponent="3.2" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="2.7" variance="1.07">
+				<shadowCell cardinality="NW" exponent="4.2" variance="1.87" />
+				<shadowCell cardinality="NE" exponent="4.3" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="5" variance="1.07" />
+				<shadowCell cardinality="SE" exponent="4.2" variance="1.47" />
+			</shadowCell>
+			<shadowCell cardinality="SE" exponent="3" variance="1.47" />
+		</shadowCell>
+		<shadowCell cardinality="SW" exponent="3.5" variance="1.07">
+			<shadowCell cardinality="NW" exponent="3.1" variance="1.87" />
+			<shadowCell cardinality="NE" exponent="3" variance="1.87">
+				<shadowCell cardinality="NW" exponent="3.8" variance="2.87" />
+				<shadowCell cardinality="NE" exponent="4.8" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="3.7" variance="1.07" />
+				<shadowCell cardinality="SE" exponent="3.8" variance="2.47" />
+			</shadowCell>
+			<shadowCell cardinality="SW" exponent="3.3" variance="1.07" />
+			<shadowCell cardinality="SE" exponent="3.2" variance="1.47" />
+		</shadowCell>
+		<shadowCell cardinality="SE" exponent="4.9" variance="1.47">
+			<shadowCell cardinality="NW" exponent="2.8" variance="1.87">
+				<shadowCell cardinality="NW" exponent="4.9" variance="1.87" />
+				<shadowCell cardinality="NE" exponent="4.1" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="3.9" variance="1.07" />
+				<shadowCell cardinality="SE" exponent="4" variance="1.47" />
+			</shadowCell>
+			<shadowCell cardinality="NE" exponent="2.9" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="2.9" variance="1.07" />
+			<shadowCell cardinality="SE" exponent="2.8" variance="1.47" />
+		</shadowCell>
+	</shadowCell>
+	<shadowCell cardinality="SW" exponent="2" variance="1.07">
+		<shadowCell cardinality="NW" exponent="2" variance="1.87" />
+		<shadowCell cardinality="NE" exponent="2" variance="1.87">
+			<shadowCell cardinality="NW" exponent="2.8" variance="1.87" />
+			<shadowCell cardinality="NE" exponent="3" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="2.7" variance="1.07" />
+			<shadowCell cardinality="SE" exponent="2.5" variance="1.47">
+				<shadowCell cardinality="NW" exponent="3.2" variance="1.87" />
+				<shadowCell cardinality="NE" exponent="4" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="3.5" variance="1.07" />
+				<shadowCell cardinality="SE" exponent="4.9" variance="1.47" />
+			</shadowCell>
+		</shadowCell>
+		<shadowCell cardinality="SW" exponent="2.2" variance="1.07" />
+		<shadowCell cardinality="SE" exponent="2" variance="1.47">
+			<shadowCell cardinality="NW" exponent="2.8" variance="1.87" />
+			<shadowCell cardinality="NE" exponent="2.8" variance="1.87">
+				<shadowCell cardinality="NW" exponent="3.3" variance="1.87" />
+				<shadowCell cardinality="NE" exponent="4.7" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="3.4" variance="1.07" />
+				<shadowCell cardinality="SE" exponent="4" variance="1.47" />
+			</shadowCell>
+			<shadowCell cardinality="SW" exponent="2.4" variance="1.07" />
+			<shadowCell cardinality="SE" exponent="2.5" variance="1.47" />
+		</shadowCell>
+	</shadowCell>
+	<shadowCell cardinality="SE" exponent="2" variance="1.47">
+		<shadowCell cardinality="NW" exponent="2" variance="1.87">
+			<shadowCell cardinality="NW" exponent="3.3" variance="1.87">
+				<shadowCell cardinality="NW" exponent="2.9" variance="1.87" />
+				<shadowCell cardinality="NE" exponent="3" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="3.3" variance="1.07" />
+				<shadowCell cardinality="SE" exponent="3.1" variance="1.47" />
+			</shadowCell>
+			<shadowCell cardinality="NE" exponent="2.9" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="3.4" variance="1.07">
+				<shadowCell cardinality="NW" exponent="4.1" variance="1.87" />
+				<shadowCell cardinality="NE" exponent="3.9" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="5" variance="2.07" />
+				<shadowCell cardinality="SE" exponent="4" variance="1.47" />
+			</shadowCell>
+			<shadowCell cardinality="SE" exponent="3" variance="1.47" />
+		</shadowCell>
+		<shadowCell cardinality="NE" exponent="2.3" variance="1.87" />
+		<shadowCell cardinality="SW" exponent="2.2" variance="2.07">
+			<shadowCell cardinality="NW" exponent="3.3" variance="1.87">
+				<shadowCell cardinality="NW" exponent="4.8" variance="1.87" />
+				<shadowCell cardinality="NE" exponent="4.2" variance="1.87" />
+				<shadowCell cardinality="SW" exponent="3.9" variance="2.07" />
+				<shadowCell cardinality="SE" exponent="4" variance="1.47" />
+			</shadowCell>
+			<shadowCell cardinality="NE" exponent="3.2" variance="1.87" />
+			<shadowCell cardinality="SW" exponent="2.7" variance="2.07" />
+			<shadowCell cardinality="SE" exponent="2.9" variance="1.47" />
+		</shadowCell>
+		<shadowCell cardinality="SE" exponent="2.1" variance="2.47" />
+	</shadowCell>
+</root>
+	
