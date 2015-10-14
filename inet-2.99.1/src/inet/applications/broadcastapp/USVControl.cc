@@ -43,6 +43,7 @@ void USVControl::initialize(int stage) {
     if (stage == INITSTAGE_LOCAL) {
 
         pathLossMapAvailable = par("pathLossMapAvailable").boolValue();
+        radiusApproximatedMapFromDecorrelatedDist = par("radiusApproximatedMapFromDecorrelatedDist").boolValue();
         defaultRepulsiveWeigth = par("defaultRepulsiveWeigth");
         desiredWeigthRatio = par("desiredWeigthRatio");
         sizeOfScenaioReportCells = par("sizeOfScenaioReportCells");
@@ -731,16 +732,48 @@ void USVControl::addScannedPointsFromOthers(ScannedPointsList *pkt) {
 void USVControl::addScanOnApproximatedMap(PointScan *ps) {
     if (!pathLossMapAvailable) {
         int minX, maxX, minY, maxY;
+        double approxDist = radiusApproximatedMap;
 
-        minX = MAX(0, ps->pos.x - radiusApproximatedMap);
-        maxX = MIN(ffmob->getConstraintAreaMax().x, ps->pos.x + radiusApproximatedMap);
-        minY = MAX(0, ps->pos.y - radiusApproximatedMap);
-        maxY = MIN(ffmob->getConstraintAreaMax().y, ps->pos.y + radiusApproximatedMap);
+        if (radiusApproximatedMapFromDecorrelatedDist) {
+            double actPathLossD0_d;
+            if (signalPropMap[ps->pos.x][ps->pos.y].number_of_scans == 0) {
+                actPathLossD0_d = pathLossD0;
+            }
+            else {
+                actPathLossD0_d = pathLossModel->getPathLossD0(myRadio, tower0RadioTransmitter->getCarrierFrequency(), signalPropMap[ps->pos.x][ps->pos.y].pathloss_alpha);
+            }
+
+            double actAlpha_d = 2.0;  //default but to define later
+
+            if (ps->scanLog.actualResult) {
+
+                double prx_dbm_d = math::mW2dBm(ps->scanLog.powerReceived.get() * 1000);
+                //actAlpha = (ptx_dbm - prx_dbm - pathLossD0) / (10.0 * log10(ps->pos.distance(positionTX)));
+                actAlpha_d = (powerTX_dBm - prx_dbm_d - actPathLossD0_d) / (10.0 * log10(ps->pos.distance(positionTX)));
+
+            }
+            else {
+                // make a guess of the alpha because there was not received any signal
+                actAlpha_d = (powerTX_dBm - actPathLossD0_d - scanPowerThreshold_dBm) / (10.0 * log10(ps->pos.distance(positionTX)));
+            }
+
+            if (signalPropMap[ps->pos.x][ps->pos.y].number_of_scans > 0) {
+                actAlpha_d = signalPropMap[ps->pos.x][ps->pos.y].pathloss_alpha +
+                        ((actAlpha_d - signalPropMap[ps->pos.x][ps->pos.y].pathloss_alpha) / (((double)(signalPropMap[ps->pos.x][ps->pos.y].number_of_scans)) + 1.0));
+            }
+
+            approxDist = calculateUncorrelatedDistanceFromAlpha(actAlpha_d);
+        }
+
+        minX = MAX(0, ps->pos.x - approxDist);
+        maxX = MIN(ffmob->getConstraintAreaMax().x, ps->pos.x + approxDist);
+        minY = MAX(0, ps->pos.y - approxDist);
+        maxY = MIN(ffmob->getConstraintAreaMax().y, ps->pos.y + approxDist);
 
         for (int x = minX; x < maxX; x++) {
             for (int y = minY; y < maxY; y++) {
 
-                if (ps->pos.distance(Coord(x,y)) <= radiusApproximatedMap) {
+                if (ps->pos.distance(Coord(x,y)) <= approxDist) {
 
                     double actPathLossD0;
                     if (signalPropMap[x][y].number_of_scans == 0) {

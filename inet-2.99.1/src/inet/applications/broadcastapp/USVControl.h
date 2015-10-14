@@ -145,6 +145,8 @@ private:
 
     double radiusApproximatedMap;
 
+    bool radiusApproximatedMapFromDecorrelatedDist;
+
     double otherScanToSendProbability;
 
     int k_over_n;

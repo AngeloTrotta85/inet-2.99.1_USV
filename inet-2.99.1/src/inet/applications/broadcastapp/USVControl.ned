@@ -34,6 +34,7 @@ simple USVControl
     double statisticsTime @unit(s) = default (5s);	// time for the vector statistics
     double otherScanToSendProbability = default (0.3);	// [0, 1] probability to send a scanning made by others nodes
     int k_over_n = default(1);			// k over n rule (1=OR, 0=AND, 2..=k-over-n)
+    bool radiusApproximatedMapFromDecorrelatedDist = default(false);	// radiusApproximatedMap is calculated as the decorrelation distance
     
     @display("i=misc/joystick");
 }
