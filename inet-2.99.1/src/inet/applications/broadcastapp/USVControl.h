@@ -65,6 +65,7 @@ public:
         double pathloss_alpha;
         double lognormal_sigma;
         int number_of_scans;
+        double sum_of_weigth;
     } PointMapSignalCharacteristics;
 
     typedef struct CellScanReport_s{

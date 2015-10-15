@@ -76,6 +76,7 @@ void USVControl::initialize(int stage) {
                 signalPropMap[x][y].pathloss_alpha = 2;
                 signalPropMap[x][y].lognormal_sigma = 1;
                 signalPropMap[x][y].number_of_scans = 0;
+                signalPropMap[x][y].sum_of_weigth = 0;
 
                 //approximatedPropMap[x][y].resize(0);
             }
@@ -770,10 +771,13 @@ void USVControl::addScanOnApproximatedMap(PointScan *ps) {
         minY = MAX(0, ps->pos.y - approxDist);
         maxY = MIN(ffmob->getConstraintAreaMax().y, ps->pos.y + approxDist);
 
+        double decayPoint_p = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
+
         for (int x = minX; x < maxX; x++) {
             for (int y = minY; y < maxY; y++) {
 
                 if (ps->pos.distance(Coord(x,y)) <= approxDist) {
+                    double w = exp(-(decayPoint_p * ps->pos.sqrdist(Coord(x,y))));
 
                     double actPathLossD0;
                     if (signalPropMap[x][y].number_of_scans == 0) {
@@ -803,6 +807,7 @@ void USVControl::addScanOnApproximatedMap(PointScan *ps) {
 
                     if (signalPropMap[x][y].number_of_scans == 0) {
                         signalPropMap[x][y].number_of_scans = 1;
+                        signalPropMap[x][y].sum_of_weigth = w;
                         signalPropMap[x][y].pathloss_alpha = actAlpha;
                     }
                     else {
@@ -810,6 +815,12 @@ void USVControl::addScanOnApproximatedMap(PointScan *ps) {
                         double newM = signalPropMap[x][y].pathloss_alpha +
                                 ((actAlpha - signalPropMap[x][y].pathloss_alpha) / (((double)(signalPropMap[x][y].number_of_scans)) + 1.0));
 
+                        if (radiusApproximatedMapFromDecorrelatedDist) {
+                            newM = ((signalPropMap[x][y].pathloss_alpha * signalPropMap[x][y].sum_of_weigth) + (w * actAlpha)) /
+                                    (signalPropMap[x][y].sum_of_weigth + w);
+                        }
+
+                        signalPropMap[x][y].sum_of_weigth += w;
                         signalPropMap[x][y].number_of_scans++;
                         signalPropMap[x][y].pathloss_alpha = newM;
                     }
@@ -1016,6 +1027,7 @@ void USVControl::finish(void) {
                 signalPropMapALL[x][y].pathloss_alpha = 2.0;//0.0;
                 signalPropMapALL[x][y].lognormal_sigma = 1.0;
                 signalPropMapALL[x][y].number_of_scans = 0;
+                signalPropMapALL[x][y].sum_of_weigth = 0;
             }
         }
 
