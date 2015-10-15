@@ -455,10 +455,12 @@ Coord FieldForceMobility::calcRepulsiveForceTimeDecade(repulsive_point_t *rp, do
     Coord ris = calcRepulsiveForce(rp);
 
     //EV << "Repulsive volatile force " << ris << " - distance " << rp->position.distance(lastPosition)
-    //        << " - time passed " << (simTime() > rp->timestamp) << " [" << (simTime() - rp->timestamp).dbl() << "]" << endl;
+    //        << " - time passed " << (simTime() > rp->timestamp) << " [" << (simTime() - rp->timestamp).dbl() << "]"
+    //        " - TimeFact: " << timeDecateFac << " - Exp value: " << (simTime() - rp->timestamp).dbl() * timeDecateFac << endl;
 
     if (simTime() > rp->timestamp) {
-        ris *= exp(-((simTime() - rp->timestamp).dbl() * timeDecateFac));
+    //    EV << "Final Multipler:  " << exp(-((simTime() - rp->timestamp).dbl() * timeDecateFac)) << endl;
+        ris *= exp(-( pow((simTime() - rp->timestamp).dbl(), 2) * timeDecateFac));
     }
 
     //EV << "FINAL volatile force " << ris << endl;
