@@ -1524,12 +1524,14 @@ void USVControl::finish(void) {
             recordScalar("percentageBusyOverScanned", cell_busy/(cell_free + cell_busy));
             recordScalar("percentageFalsePositiveOverScanned", n_falsePos_alarms/(cell_free + cell_busy));
             recordScalar("percentageFalseNegativeOverScanned", n_falseNeg_alarms/(cell_free + cell_busy));
+            recordScalar("percentageErrorOverScanned", (n_falseNeg_alarms + n_falsePos_alarms)/(cell_free + cell_busy));
             recordScalar("scanPerCellAverageOverScanned", sum_scan_per_cell/(cell_free + cell_busy));
         }
         recordScalar("percentageFree", cell_free/tot_cell);
         recordScalar("percentageBusy", cell_busy/tot_cell);
         recordScalar("percentageFalsePositive", n_falsePos_alarms/tot_cell);
         recordScalar("percentageFalseNegative", n_falseNeg_alarms/tot_cell);
+        recordScalar("percentageError", (n_falseNeg_alarms + n_falsePos_alarms)/tot_cell);
         recordScalar("scanPerCellAverage", sum_scan_per_cell/tot_cell);
 
         recordScalar("freeCells", cell_free);
