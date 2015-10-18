@@ -451,6 +451,14 @@ bool USVControl::calcIfInRangeTransmSimple(Coord point) {
 
         m mThDist = pathLossModel->getThresholdDistance(p_tx_dBm, sigma_mult, threshold_dBm, receiverPos, receiverRadio, frequency);
 
+        //EV << "frequency " << frequency
+        //        << " - p_tx_dBm " << p_tx_dBm << "[ " << radioTX->getTransmitter()->getMaxPower() << " ]"
+        //        << " - sigma_mult " << sigma_mult
+        //        << " - threshold_dBm " << threshold_dBm
+        //        << " - ThresholdDistance " << mThDist
+        //        << " - distance from tx " << txMob->getCurrentPosition().distance(point)
+        //        << endl;
+
         if (txMob->getCurrentPosition().distance(point) <= mThDist.get()) {
             ris = true;
             break;
@@ -1345,16 +1353,20 @@ void USVControl::finish(void) {
                 tot_cell++;
 
                 //ffmob->getConstraintAreaMin().x + (x * cellMinSize) + (cellMinSize/2);
+                //EV << "GRIDCALC: check cell [" << x << " " << y << "]" << endl;
                 bool busy_calc_this_cell = false;
                 for (int ic = 0; ic < cellMinSize; ic++) {
                     for (int jc = 0; jc < cellMinSize; jc++) {
                         int xc = ffmob->getConstraintAreaMin().x + (x * cellMinSize) + ic;
                         int yc = ffmob->getConstraintAreaMin().y + (y * cellMinSize) + jc;
 
+                        //EV << "[" << xc << " " << yc << " - " << calcIfInRangeTransmSimple(Coord(xc, yc)) << "]" << endl;
+
                         if (calcIfInRangeTransmSimple(Coord(xc, yc))) {
                             busy_calc_this_cell = true;
                             break;
                         }
+                        //EV << endl;
                     }
                     if (busy_calc_this_cell) break;
                 }

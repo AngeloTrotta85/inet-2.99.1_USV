@@ -172,7 +172,8 @@ m LogNormalShadowingGrid::getThresholdDistance(double p_tx_dBm, double sigma_mul
 
     grid_alphaRx = alpha;
     grid_sigmaRx = sigma;
-    getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, receiverPos, grid_alphaRx, grid_sigmaRx);
+    //getAlphaSigmaFromCoord(&grid_map, scenarioCoordMin, scenarioCoordMax, receiverPos, grid_alphaRx, grid_sigmaRx);
+    getAlphaSigmaFromAbsCoord(receiverPos, grid_alphaRx, grid_sigmaRx);
 
     m d0 = m(1.0);
     const IRadioMedium *radioMedium = receiverRadio->getMedium();
@@ -182,6 +183,15 @@ m LogNormalShadowingGrid::getThresholdDistance(double p_tx_dBm, double sigma_mul
     double PL_d0_db = 10.0 * log10(1 / freeSpacePathLoss);
 
     m d = d0 * pow(10, (p_tx_dBm - PL_d0_db + (sigma_mult * grid_sigmaRx) - threshold_dBm) / (10 * grid_alphaRx));
+
+    //EV << "alpha " << grid_alphaRx
+    //        << " - sigma " << grid_sigmaRx
+    //        << " - propagationSpeed " << propagationSpeed
+    //        << " - freeSpacePathLoss " << freeSpacePathLoss
+    //        << " - PL_d0_db " << PL_d0_db
+    //        << " - d0 " << d0
+    //        << " - ris " << d
+    //        << endl;
 
     return d;
 }
