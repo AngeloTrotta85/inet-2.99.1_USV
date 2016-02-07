@@ -157,6 +157,11 @@ private:
 
     bool pathLossMapAvailable;
 
+    bool schematicScouting;
+    double staticScanCellSize;
+    std::list<Coord> listPointScan;
+    std::list<Coord>::iterator itPointScan;
+
     double defaultRepulsiveWeigth;
     double desiredWeigthRatio;
 

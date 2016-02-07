@@ -35,6 +35,8 @@ simple USVControl
     double otherScanToSendProbability = default (0.3);	// [0, 1] probability to send a scanning made by others nodes
     int k_over_n = default(1);			// k over n rule (1=OR, 0=AND, 2..=k-over-n)
     bool radiusApproximatedMapFromDecorrelatedDist = default(false);	// radiusApproximatedMap is calculated as the decorrelation distance
+    bool schematicScouting = default(false);	// flag to set a grid schematic exploring technique
+    double staticScanCellSize @unit(m) = default(50m); // if "schematicScouting" this parameter define de cell scan size
     
     @display("i=misc/joystick");
 }

@@ -44,6 +44,8 @@ void USVControl::initialize(int stage) {
 
         pathLossMapAvailable = par("pathLossMapAvailable").boolValue();
         radiusApproximatedMapFromDecorrelatedDist = par("radiusApproximatedMapFromDecorrelatedDist").boolValue();
+        schematicScouting = par("schematicScouting").boolValue();
+        staticScanCellSize = par("staticScanCellSize");
         defaultRepulsiveWeigth = par("defaultRepulsiveWeigth");
         desiredWeigthRatio = par("desiredWeigthRatio");
         sizeOfScenaioReportCells = par("sizeOfScenaioReportCells");
@@ -126,6 +128,72 @@ void USVControl::initialize(int stage) {
                     signalPropMap[x][y].number_of_scans = 1;
                 }
             }
+        }
+
+        /* CASO RICOGNIZIONE SCHEMATIZZATA */
+        if (schematicScouting) {
+            //listPointScan
+            //signalPropMap.resize((int)(ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x));
+            int nUAV = this->getParentModule()->getParentModule()->par("numHosts");
+            int myIdx = this->getParentModule()->getIndex();
+            double nrc = sqrt(nUAV);
+            Coord myMin, myMax;
+
+            ASSERT((nrc - floor(nrc)) == 0);
+
+            double offsetX = (ffmob->getConstraintAreaMax().x - ffmob->getConstraintAreaMin().x) / nrc;
+            double offsetY = (ffmob->getConstraintAreaMax().y - ffmob->getConstraintAreaMin().y) / nrc;
+
+            double sx, sy;
+            sx = myIdx % (int)nrc;
+            sy = floor(myIdx / nrc);
+
+            myMin = Coord((sx * offsetX) + ffmob->getConstraintAreaMin().x, (sy * offsetY) + ffmob->getConstraintAreaMin().y);
+            myMax = Coord(((sx + 1) * offsetX) + ffmob->getConstraintAreaMin().x, ((sy + 1) * offsetY) + ffmob->getConstraintAreaMin().y);
+
+            int nnx = (offsetX / staticScanCellSize) + 1;
+            int nny = (offsetY / staticScanCellSize) + 1;
+
+            bool andata = true;
+            for (int xx = 0; xx < nnx; xx++) {
+                if (andata) {
+                    for (int yy = 0; yy < nny; yy++) {
+                        double newx = myMin.x + (xx * staticScanCellSize) + (staticScanCellSize/2);
+                        double newy = myMin.y + (yy * staticScanCellSize) + (staticScanCellSize/2);
+                        if (newx >= ffmob->getConstraintAreaMax().x) {
+                            newx = ffmob->getConstraintAreaMax().x - 1;
+                        }
+                        if (newy >= ffmob->getConstraintAreaMax().y) {
+                            newy = ffmob->getConstraintAreaMax().y - 1;
+                        }
+                        listPointScan.push_back(Coord(newx, newy));
+                    }
+                }
+                else {
+                    for (int yy = (nny-1); yy >= 0; yy--) {
+                        double newx = myMin.x + (xx * staticScanCellSize) + (staticScanCellSize/2);
+                        double newy = myMin.y + (yy * staticScanCellSize) + (staticScanCellSize/2);
+                        if (newx >= ffmob->getConstraintAreaMax().x) {
+                            newx = ffmob->getConstraintAreaMax().x - 1;
+                        }
+                        if (newy >= ffmob->getConstraintAreaMax().y) {
+                            newy = ffmob->getConstraintAreaMax().y - 1;
+                        }
+                        listPointScan.push_back(Coord(newx, newy));
+                    }
+                }
+                andata = !andata;
+            }
+
+            /*EV << "Sono l'UAV n^" << myIdx << ", e andrò a scansionare i seguenti punti sullo scenario: " << ffmob->getConstraintAreaMin() <<
+                    " " << ffmob->getConstraintAreaMax() << endl;
+            EV << "Il mio spazio è da " << myMin << " a " << myMax << endl;
+            for (itPointScan = listPointScan.begin(); itPointScan != listPointScan.end(); itPointScan++) {
+                EV << "[" << *itPointScan << "] ";
+            }
+            EV << endl;*/
+
+            itPointScan = listPointScan.begin();
         }
     }
     else if (stage == INITSTAGE_LAST) {
@@ -330,32 +398,53 @@ void USVControl::handleMessage(cMessage *msg) {
 
 bool USVControl::checkIfScan(void) {
     bool ris = false;
-    double probToScan, maxForce;
+    if (!schematicScouting) {
+        double probToScan, maxForce;
 
-    maxForce = -1;
+        maxForce = -1;
 
-    //fprintf(stderr, "Sono %02d - checkIfScan - MYscannedPoints: %02d - OTHERSscannedPoints:%02d\n",
-    //        this->getParentModule()->getIndex(), (int) scannedPoints.size(), (int) scannedPoints_fromOthers.size()); fflush(stderr);
+        //fprintf(stderr, "Sono %02d - checkIfScan - MYscannedPoints: %02d - OTHERSscannedPoints:%02d\n",
+        //        this->getParentModule()->getIndex(), (int) scannedPoints.size(), (int) scannedPoints_fromOthers.size()); fflush(stderr);
 
-    for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
-        PointScan *ps = &(*it);
-        double pointForce = calculateForceFromPoint(ps->pos);
-        if (pointForce > maxForce) maxForce = pointForce;
+        for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
+            PointScan *ps = &(*it);
+            double pointForce = calculateForceFromPoint(ps->pos);
+            if (pointForce > maxForce) maxForce = pointForce;
+        }
+
+        for (std::list<PointScan>::iterator it = scannedPoints.begin(); it != scannedPoints.end(); it++) {
+            PointScan *ps = &(*it);
+            double pointForce = calculateForceFromPoint(ps->pos);
+            if (pointForce > maxForce) maxForce = pointForce;
+        }
+
+        probToScan = 1.0 - (maxForce / defaultRepulsiveWeigth);  // all the force cannot be greater then "defaultRepulsiveWeigth"
+
+        EV << "Checking if needed scan here. Probability to scan is: " << probToScan << endl;
+
+        if (dblrand() < probToScan) {
+
+            ris = true;
+        }
     }
+    else {
 
-    for (std::list<PointScan>::iterator it = scannedPoints.begin(); it != scannedPoints.end(); it++) {
-        PointScan *ps = &(*it);
-        double pointForce = calculateForceFromPoint(ps->pos);
-        if (pointForce > maxForce) maxForce = pointForce;
-    }
+        if (itPointScan != listPointScan.end()) {
 
-    probToScan = 1.0 - (maxForce / defaultRepulsiveWeigth);  // all the force cannot be greater then "defaultRepulsiveWeigth"
+            Coord newForce = *itPointScan - ffmob->getCurrentPosition();
+            if (newForce.length() > 1) newForce.normalize();
+            ffmob->setExploringForce(newForce);
 
-    EV << "Checking if needed scan here. Probability to scan is: " << probToScan << endl;
+            Coord diffc = ffmob->getCurrentPosition() - *itPointScan;
+            if (diffc.length() <= 1) {
+                ris = true;
 
-    if (dblrand() < probToScan) {
-
-        ris = true;
+                itPointScan++;
+            }
+        }
+        else {
+            ffmob->setExploringForce(Coord::ZERO);
+        }
     }
 
     return ris;
@@ -586,20 +675,25 @@ double USVControl::calculateForceFromPoint(Coord point) {
 }
 
 void USVControl::updateMobilityPointsParameters(void) {
-    for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
-        PointScan *ps = &(*it);
+    if (!schematicScouting) {
+        for (std::list<PointScan>::iterator it = scannedPoints_fromOthers.begin(); it != scannedPoints_fromOthers.end(); it++) {
+            PointScan *ps = &(*it);
 
-        double decade_factor = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
+            double decade_factor = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
 
-        ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->scanningHostAddr, ps->pos, defaultRepulsiveWeigth, decade_factor);
+            ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->scanningHostAddr, ps->pos, defaultRepulsiveWeigth, decade_factor);
+        }
+
+        for (std::list<PointScan>::iterator it = scannedPoints.begin(); it != scannedPoints.end(); it++) {
+            PointScan *ps = &(*it);
+
+            double decade_factor = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
+
+            ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->scanningHostAddr, ps->pos, defaultRepulsiveWeigth, decade_factor);
+        }
     }
+    else {
 
-    for (std::list<PointScan>::iterator it = scannedPoints.begin(); it != scannedPoints.end(); it++) {
-        PointScan *ps = &(*it);
-
-        double decade_factor = calculateDecayFromWeigthAndChannelLoss(desiredWeigthRatio, defaultRepulsiveWeigth, ps->pos);
-
-        ffmob->addPersistentRepulsiveForce(ps->scanningID, ps->scanningHostAddr, ps->pos, defaultRepulsiveWeigth, decade_factor);
     }
 }
 
