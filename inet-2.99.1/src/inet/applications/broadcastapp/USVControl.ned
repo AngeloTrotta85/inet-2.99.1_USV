@@ -37,6 +37,7 @@ simple USVControl
     bool radiusApproximatedMapFromDecorrelatedDist = default(false);	// radiusApproximatedMap is calculated as the decorrelation distance
     bool schematicScouting = default(false);	// flag to set a grid schematic exploring technique
     double staticScanCellSize @unit(m) = default(50m); // if "schematicScouting" this parameter define de cell scan size
+    bool saveGridMaps = default(true); // flag to save the various maps
     
     @display("i=misc/joystick");
 }

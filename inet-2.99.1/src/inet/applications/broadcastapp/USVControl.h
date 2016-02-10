@@ -157,6 +157,8 @@ private:
 
     bool pathLossMapAvailable;
 
+    bool saveGridMaps;
+
     bool schematicScouting;
     double staticScanCellSize;
     std::list<Coord> listPointScan;

@@ -45,6 +45,7 @@ void USVControl::initialize(int stage) {
         pathLossMapAvailable = par("pathLossMapAvailable").boolValue();
         radiusApproximatedMapFromDecorrelatedDist = par("radiusApproximatedMapFromDecorrelatedDist").boolValue();
         schematicScouting = par("schematicScouting").boolValue();
+        saveGridMaps = par("saveGridMaps").boolValue();
         staticScanCellSize = par("staticScanCellSize");
         defaultRepulsiveWeigth = par("defaultRepulsiveWeigth");
         desiredWeigthRatio = par("desiredWeigthRatio");
@@ -1422,14 +1423,25 @@ void USVControl::finish(void) {
 
         //FILE *f_grid_alpha = nullptr; // = fopen(fn_grid_alpha.c_str(), "w");
         FILE *f_grid_gridalpha = nullptr; // = fopen(fn_grid_gridalpha.c_str(), "w");
-        FILE *f_grid_scan = fopen(fn_grid_scan.c_str(), "w");
-        FILE *f_grid_nscan = fopen(fn_grid_nscan.c_str(), "w");
-        FILE *f_grid_calc = fopen(fn_grid_calc.c_str(), "w");
-        FILE *f_grid_diff = fopen(fn_grid_diff.c_str(), "w");
-        FILE *f_grid_color = fopen(fn_grid_color.c_str(), "w");
-        FILE *f_grid_quality = fopen(fn_grid_quality.c_str(), "w");
-        FILE *f_grid_falsePositiveList = fopen(fn_grid_falsePositiveList.c_str(), "w");
-        FILE *f_grid_falseNegativeList = fopen(fn_grid_falseNegativeList.c_str(), "w");
+        FILE *f_grid_scan = nullptr;
+        FILE *f_grid_nscan = nullptr;
+        FILE *f_grid_calc = nullptr;
+        FILE *f_grid_diff = nullptr;
+        FILE *f_grid_color = nullptr;
+        FILE *f_grid_quality = nullptr;
+        FILE *f_grid_falsePositiveList = nullptr;
+        FILE *f_grid_falseNegativeList = nullptr;
+
+        if (saveGridMaps) {
+            f_grid_scan = fopen(fn_grid_scan.c_str(), "w");
+            f_grid_nscan = fopen(fn_grid_nscan.c_str(), "w");
+            f_grid_calc = fopen(fn_grid_calc.c_str(), "w");
+            f_grid_diff = fopen(fn_grid_diff.c_str(), "w");
+            f_grid_color = fopen(fn_grid_color.c_str(), "w");
+            f_grid_quality = fopen(fn_grid_quality.c_str(), "w");
+            f_grid_falsePositiveList = fopen(fn_grid_falsePositiveList.c_str(), "w");
+            f_grid_falseNegativeList = fopen(fn_grid_falseNegativeList.c_str(), "w");
+        }
 
         double sum_scan_per_cell;
         sum_scan_per_cell = 0;
